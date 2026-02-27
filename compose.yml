@@ -1,0 +1,25 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8050:8050"
+    environment:
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO"]
+    environment:
+      - CELERY_IMPORTS=ml.tasks
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
