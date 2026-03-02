@@ -4,22 +4,56 @@ services:
     ports:
       - "8050:8050"
     environment:
+      - APP_ENV=${APP_ENV}
+      - DATABASE_URL=${DATABASE_URL}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_SERVICE=${LOG_SERVICE}
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   worker:
     build: .
-    command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO"]
+    command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
     environment:
-      - CELERY_IMPORTS=ml.tasks
+      - APP_ENV=${APP_ENV}
+      - DATABASE_URL=${DATABASE_URL}
       - CELERY_BROKER_URL=${CELERY_BROKER_URL}
       - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      - LOG_FORMAT=${LOG_FORMAT}
+      - LOG_LEVEL=${LOG_LEVEL}
+      - LOG_SERVICE=${LOG_SERVICE}
     depends_on:
-      - redis
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
 
   redis:
     image: redis:7-alpine
     ports:
       - "6379:6379"
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres_data:

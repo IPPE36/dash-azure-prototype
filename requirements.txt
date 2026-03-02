@@ -3,3 +3,5 @@ dash-extensions==0.1.13
 gunicorn
 celery
 redis
+SQLAlchemy
+psycopg[binary]

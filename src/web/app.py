@@ -2,6 +2,11 @@
 
 from dash_extensions.enrich import html, dcc, DashProxy, page_container, TriggerTransform, MultiplexerTransform
 from shared.celery_app import bg_manager
+from shared.db import init_db
+from shared.logs import init_logs
+
+init_logs()
+init_db()
 
 app = DashProxy(
     # external_stylesheets=[dbc.themes.BOOTSTRAP],
