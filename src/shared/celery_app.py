@@ -8,8 +8,6 @@ from dash import CeleryManager
 from shared.db import init_db
 from shared.logs import init_logs
 
-init_logs()
-init_db()
 logger = logging.getLogger(__name__)
 
 BROKER_URL = os.getenv("CELERY_BROKER_URL")
@@ -34,12 +32,6 @@ celery_app.conf.broker_transport_options = {
     "socket_connect_timeout": 5,
     "socket_timeout": 5,
 }
-
-# Azure/App Service: broker may not be ready instantly
-celery_app.conf.broker_connection_retry_on_startup = True
-celery_app.conf.broker_connection_max_retries = None
-
-bg_manager = CeleryManager(celery_app)
 
 @worker_process_init.connect
 def warm_models(**_kwargs):

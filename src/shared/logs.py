@@ -36,7 +36,6 @@ def init_logs() -> None:
 
     level_name = os.getenv("LOG_LEVEL", "INFO").upper()
     level = getattr(logging, level_name, logging.INFO)
-    fmt = os.getenv("LOG_FORMAT", "json").lower()
 
     root = logging.getLogger()
     root.setLevel(level)
@@ -68,7 +67,6 @@ def log_execution(
         def my_func(...):
             ...
     """
-
     def decorator(func):
         log = logging.getLogger(logger_name or func.__module__)
 

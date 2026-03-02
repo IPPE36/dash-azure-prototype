@@ -5,7 +5,6 @@ import logging
 
 _RUNTIME = None
 _LOCK = Lock()
-logger = logging.getLogger(__name__)
 
 
 class ModelRuntime:
