@@ -3,6 +3,8 @@
 from threading import Lock
 import logging
 
+logger = logging.getLogger(__name__)
+
 _RUNTIME = None
 _LOCK = Lock()
 

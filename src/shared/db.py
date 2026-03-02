@@ -3,12 +3,13 @@ import os
 
 from sqlalchemy import DateTime, Integer, String, Text, create_engine, func, select
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
+from .logs import log_execution
 
 logger = logging.getLogger(__name__)
 
-DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+_DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 
-engine = create_engine(DATABASE_URL, future=True, pool_pre_ping=True) if DATABASE_URL else None
+engine = create_engine(_DATABASE_URL, future=True, pool_pre_ping=True) if _DATABASE_URL else None
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False) if engine else None
 
 
@@ -32,6 +33,7 @@ class TaskRun(Base):
     )
 
 
+@log_execution(logger_name=__name__)
 def init_db() -> None:
     if engine is None:
         logger.info("DATABASE_URL not set; skipping DB initialization")
@@ -40,6 +42,7 @@ def init_db() -> None:
     logger.info("database schema initialized")
 
 
+@log_execution(logger_name=__name__)
 def create_task_run(task_id: str, task_name: str, input_value: int) -> None:
     if SessionLocal is None:
         return
@@ -54,6 +57,7 @@ def create_task_run(task_id: str, task_name: str, input_value: int) -> None:
         session.commit()
 
 
+@log_execution(logger_name=__name__)
 def update_task_run(
     task_id: str, status: str, result_text: str | None = None, error_text: str | None = None
 ) -> None:

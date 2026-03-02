@@ -8,6 +8,10 @@ from datetime import datetime, timezone
 
 
 _CONFIGURED = False
+_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+_LOG_FORMAT = os.getenv("LOG_FORMAT", "json").lower()
+_LOG_SERVICE = os.getenv("LOG_SERVICE", "local")
+_APP_ENV = os.getenv("APP_ENV", "local")
 
 
 class JsonFormatter(logging.Formatter):
@@ -17,8 +21,8 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
-            "service": os.getenv("LOG_SERVICE", "local"),
-            "env": os.getenv("APP_ENV", "local"),
+            "service": _LOG_SERVICE,
+            "env": _APP_ENV,
         }
         for key in ("trace_id", "request_id", "task_id", "task_name"):
             value = getattr(record, key, None)
@@ -34,14 +38,14 @@ def init_logs() -> None:
     if _CONFIGURED:
         return
 
-    level_name = os.getenv("LOG_LEVEL", "INFO").upper()
+    level_name = _LOG_LEVEL
     level = getattr(logging, level_name, logging.INFO)
 
     root = logging.getLogger()
     root.setLevel(level)
 
     handler = logging.StreamHandler(stream=sys.stdout)
-    if fmt == "console":
+    if _LOG_FORMAT == "console":
         handler.setFormatter(
             logging.Formatter(
                 "%(asctime)s %(levelname)s %(name)s %(message)s"
