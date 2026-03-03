@@ -5,7 +5,7 @@ import redis
 
 from flask_session import Session
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, dcc, DashProxy, page_container, TriggerTransform, MultiplexerTransform
+from dash_extensions.enrich import html, dcc, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 
 from web.auth import bp as auth_bp, request_guard
 from shared.celery_app import bg_manager

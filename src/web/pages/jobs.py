@@ -53,15 +53,17 @@ def poll_job(_, data):
 
     if r.successful():
         if db_row is not None:
+            input_payload = db_row.get("input_payload")
+            output_payload = db_row.get("output_payload")
             return (
-                f"Done (DB): clicked={db_row['input_value']}, result={db_row['result_text']}",
+                f"Done (DB): input={input_payload}, output={output_payload}",
                 True,
             )
         return f"Done: {r.result}", True
 
     if r.failed():
-        if db_row is not None and db_row["error_text"]:
-            return f"Failed (DB): {db_row['error_text']}", True
+        if db_row is not None and db_row.get("error_payload"):
+            return f"Failed (DB): {db_row['error_payload']}", True
         return f"Failed: {r.result}", True
 
     return f"State: {r.state}", False
