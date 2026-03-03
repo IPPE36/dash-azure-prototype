@@ -2,8 +2,10 @@
 
 import logging
 import os
+import zlib
 
-from sqlalchemy import Boolean, DateTime, Integer, String, Text, create_engine, func, select
+from sqlalchemy import Boolean, DateTime, Integer, String, Text, create_engine, func, select, text
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, sessionmaker
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -97,13 +99,11 @@ def add_user(username: str, password_hash: str = "", exists_ok: bool = True) -> 
             if exists_ok:
                 return
             raise ValueError(f"User already exists: {normalized}")
-        session.add(
-            User(
-                username=normalized,
-                password_hash=password_hash or "",
-                is_active=True,
-            )
-        )
+        session.add(User(
+            username=normalized,
+            password_hash=password_hash or "",
+            is_active=True,
+        ))
         session.commit()
 
 
@@ -112,7 +112,19 @@ def init_db() -> None:
     if engine is None:
         logger.info("DATABASE_URL not set; skipping DB initialization")
         return
-    Base.metadata.create_all(bind=engine)
+    # Multiple processes can import app startup code concurrently; serialize DDL in Postgres.
+    lock_key = zlib.crc32(b"shared.db.init_db.create_all")
+    try:
+        with engine.connect() as conn:
+            conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": lock_key})
+            try:
+                Base.metadata.create_all(bind=conn)
+                conn.commit()
+            finally:
+                conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
+    except DBAPIError:
+        logger.exception("database schema initialization failed")
+        raise
     if _DEV:
         _seed_dev_users()
     logger.info("database schema initialized")
@@ -165,5 +177,3 @@ def get_task_run(task_id: str) -> dict[str, str | int | None] | None:
             "result_text": row.result_text,
             "error_text": row.error_text,
         }
-
-

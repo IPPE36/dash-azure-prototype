@@ -27,7 +27,15 @@ def _dev_auth_enabled() -> bool:
 
 
 def _msal_auth_enabled() -> bool:
-    return _auth_mode() == "entra"
+    return _auth_mode() == "azure"
+
+
+def _databricks_auth_enabled() -> bool:
+    return _auth_mode() == "databricks"
+
+
+def _oidc_auth_enabled() -> bool:
+    return _msal_auth_enabled() or _databricks_auth_enabled()
 
 
 def _is_configured() -> bool:
@@ -76,7 +84,7 @@ def _extract_user_name(user: dict | None) -> str | None:
 def _is_authenticated() -> bool:
     if _dev_auth_enabled():
         return bool(session.get("dev_authenticated"))
-    if _msal_auth_enabled():
+    if _oidc_auth_enabled():
         return bool(session.get("user_name"))
     return False
 
@@ -107,16 +115,16 @@ def login():
             return redirect(target)
         return render_template("dev_login.html", error="Invalid username or password."), 401
 
-    if _msal_auth_enabled():
+    if _oidc_auth_enabled():
         if not _is_configured():
             return "Auth configuration error: set CLIENT_ID and CLIENT_SECRET.", 500
         return redirect(_build_auth_url())
-    return "Unsupported AUTH_MODE configured. Use 'dev' or 'entra'.", 500
+    return "Unsupported AUTH_MODE configured. Use 'dev', 'azure' or 'databricks'.", 500
 
 
 @bp.route(_REDIRECT_PATH)
 def auth_response():
-    if _msal_auth_enabled():
+    if _oidc_auth_enabled():
         if not _is_configured():
             return "Auth configuration error: set CLIENT_ID and CLIENT_SECRET.", 500
         code = request.args.get("code")
@@ -134,7 +142,7 @@ def auth_response():
         add_user(user_name, password_hash="", exists_ok=True)
         session["user_name"] = user_name
         return redirect("/")
-    return "Unsupported AUTH_MODE configured. Use 'dev' or 'entra'.", 500
+    return "Unsupported AUTH_MODE configured. Use 'dev', 'azure' or 'databricks'.", 500
 
 
 @bp.route("/logout")
@@ -143,12 +151,12 @@ def logout():
     session.pop("user_name", None)
     if _dev_auth_enabled():
         return redirect(url_for("auth.login"))
-    if _msal_auth_enabled():
+    if _oidc_auth_enabled():
         return redirect(
             "https://login.microsoftonline.com/common/oauth2/v2.0/logout"
             f"?post_logout_redirect_uri={url_for('auth.logoffCompleted', _external=True)}"
         )
-    return "Unsupported AUTH_MODE configured. Use 'dev' or 'entra'.", 500
+    return "Unsupported AUTH_MODE configured. Use 'dev', 'azure' or 'databricks'.", 500
 
 
 @bp.route("/logoffCompleted")
@@ -168,8 +176,8 @@ def login_required(view: Callable):
 def request_guard():
     if is_public_path(request.path):
         return None
-    if not (_dev_auth_enabled() or _msal_auth_enabled()):
-        return "Unsupported AUTH_MODE configured. Use 'dev' or 'entra'.", 500
+    if not (_dev_auth_enabled() or _oidc_auth_enabled()):
+        return "Unsupported AUTH_MODE configured. Use 'dev', 'azure' or 'databricks'.", 500
     if not _is_authenticated():
         return redirect(url_for("auth.login", next=request.path))
     user_name = session.get("user_name")
