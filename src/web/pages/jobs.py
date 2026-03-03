@@ -1,11 +1,12 @@
 # src/web/pages/jobs.py
-import dash
 from celery.result import AsyncResult
 from dash_extensions.enrich import html, dcc, Input, Output, State, callback, register_page
 from dash.exceptions import PreventUpdate
 
 from shared.celery_app import celery_app
+from shared.db import get_task_run
 from shared.tasks import long_task
+from web.auth import get_user_name
 
 register_page(__name__, path="/jobs")
 
@@ -30,7 +31,8 @@ def start_job(n_clicks):
     if not n_clicks:
         raise PreventUpdate
     res = long_task.delay(n_clicks)
-    return {"task_id": res.id}, False, f"Queued task: {res.id}"
+    user_name = get_user_name() or "unknown-user"
+    return {"task_id": res.id}, False, f"Queued task: {res.id} (user={user_name})"
 
 
 @callback(
@@ -38,16 +40,28 @@ def start_job(n_clicks):
     Output("poll", "disabled"),
     Input("poll", "n_intervals"),
     State("task-store", "data"),
-    # background=True,
 )
 def poll_job(_, data):
     if not _:
         raise PreventUpdate
     if not data:
         return "No task.", True
-    r = AsyncResult(data["task_id"], app=celery_app)
+
+    task_id = data["task_id"]
+    r = AsyncResult(task_id, app=celery_app)
+    db_row = get_task_run(task_id)
+
     if r.successful():
-        return f"✅ Done: {r.result}", True
+        if db_row is not None:
+            return (
+                f"Done (DB): clicked={db_row['input_value']}, result={db_row['result_text']}",
+                True,
+            )
+        return f"Done: {r.result}", True
+
     if r.failed():
-        return f"❌ Failed: {r.result}", True
-    return f"⏳ State: {r.state}", False
+        if db_row is not None and db_row["error_text"]:
+            return f"Failed (DB): {db_row['error_text']}", True
+        return f"Failed: {r.result}", True
+
+    return f"State: {r.state}", False

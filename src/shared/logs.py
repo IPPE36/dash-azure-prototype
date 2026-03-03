@@ -1,3 +1,5 @@
+# src/shared/logs.py
+
 import json
 import logging
 import os
@@ -9,9 +11,7 @@ from datetime import datetime, timezone
 
 _CONFIGURED = False
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-_LOG_FORMAT = os.getenv("LOG_FORMAT", "json").lower()
-_LOG_SERVICE = os.getenv("LOG_SERVICE", "local")
-_APP_ENV = os.getenv("APP_ENV", "local")
+_LOG_FORMAT = os.getenv("LOG_FORMAT", "console").lower()
 
 
 class JsonFormatter(logging.Formatter):
@@ -21,8 +21,6 @@ class JsonFormatter(logging.Formatter):
             "level": record.levelname,
             "logger": record.name,
             "message": record.getMessage(),
-            "service": _LOG_SERVICE,
-            "env": _APP_ENV,
         }
         for key in ("trace_id", "request_id", "task_id", "task_name"):
             value = getattr(record, key, None)
@@ -38,19 +36,16 @@ def init_logs() -> None:
     if _CONFIGURED:
         return
 
-    level_name = _LOG_LEVEL
-    level = getattr(logging, level_name, logging.INFO)
+    level = getattr(logging, _LOG_LEVEL, logging.INFO)
 
     root = logging.getLogger()
     root.setLevel(level)
 
     handler = logging.StreamHandler(stream=sys.stdout)
     if _LOG_FORMAT == "console":
-        handler.setFormatter(
-            logging.Formatter(
-                "%(asctime)s %(levelname)s %(name)s %(message)s"
-            )
-        )
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s %(levelname)s %(name)s %(message)s"
+        ))
     else:
         handler.setFormatter(JsonFormatter())
 

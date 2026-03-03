@@ -1,16 +1,10 @@
 services:
   web:
     build: .
+    env_file:
+      - ${APP_ENV_FILE:-.env}
     ports:
       - "8050:8050"
-    environment:
-      - APP_ENV=${APP_ENV}
-      - DATABASE_URL=${DATABASE_URL}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-      - LOG_FORMAT=${LOG_FORMAT}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - LOG_SERVICE=${LOG_SERVICE}
     depends_on:
       postgres:
         condition: service_healthy
@@ -20,14 +14,8 @@ services:
   worker:
     build: .
     command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
-    environment:
-      - APP_ENV=${APP_ENV}
-      - DATABASE_URL=${DATABASE_URL}
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
-      - LOG_FORMAT=${LOG_FORMAT}
-      - LOG_LEVEL=${LOG_LEVEL}
-      - LOG_SERVICE=${LOG_SERVICE}
+    env_file:
+      - ${APP_ENV_FILE:-.env}
     depends_on:
       postgres:
         condition: service_healthy
@@ -36,11 +24,16 @@ services:
 
   redis:
     image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"]
     ports:
       - "6379:6379"
+    volumes:
+      - redis_data:/data
 
   postgres:
     image: postgres:16-alpine
+    env_file:
+      - ${APP_ENV_FILE:-.env}
     environment:
       - POSTGRES_DB=${POSTGRES_DB}
       - POSTGRES_USER=${POSTGRES_USER}
@@ -57,3 +50,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

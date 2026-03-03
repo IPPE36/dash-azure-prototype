@@ -1,8 +1,10 @@
 # src/shared/tasks.py
 
 import logging
+
 from .celery_app import celery_app
 from .db import create_task_run, update_task_run
+
 
 logger = logging.getLogger(__name__)
 
