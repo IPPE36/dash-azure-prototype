@@ -11,7 +11,7 @@ from shared.celery_app import celery_app
 from shared.db.tasks import add_task, delete_task_run, get_task_queue_position, get_user_task_monitor
 from shared.tasks import long_task
 from web.auth import get_user_name
-from web.layouts import build_sidebar_layout
+from web.layouts.layout_sidebar import build_sidebar_layout
 
 register_page(__name__, path="/jobs")
 PROGRESS_VISIBLE_STYLE = {"height": "28px", "marginTop": "12px"}

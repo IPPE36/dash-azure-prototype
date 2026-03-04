@@ -1,0 +1,13 @@
+.topbar-nav-menu .dropdown-toggle::before {
+    content: "\f0c9";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.topbar-user-menu .dropdown-toggle::before {
+    content: "\f007";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}

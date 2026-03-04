@@ -1,0 +1,90 @@
+# src/web/layout/layout_banner.py
+
+import os
+
+import dash_bootstrap_components as dbc
+from dash_extensions.enrich import html
+
+from web.theme import (
+    COLOR_DARK_BLUE,
+    COLOR_MID_GRAY,
+    ICON_PAGE_APP,
+    ICON_USER_LOGOUT,
+)
+
+_APP_NAME = os.getenv("APP_NAME", "Suite")
+_VERSION = os.getenv("APP_VERSION", "1.0")
+
+def build_top_banner():
+    banner = html.Div(
+        dbc.Container(
+            dbc.Row(
+                [
+                    dbc.Col(
+                        html.Div(
+                            [
+                                html.I(className=ICON_PAGE_APP),
+                                html.Span(f"{_APP_NAME}-{_VERSION}", className="fw-semibold"),
+                            ],
+                            className="text-white d-flex align-items-center",
+                        ),
+                        width=8,
+                    ),
+                    dbc.Col(
+                        html.Div(
+                            [
+                                dbc.DropdownMenu(
+                                    id="topbar-nav-menu",
+                                    label="Navigation",
+                                    color="secondary",
+                                    size="sm",
+                                    className="topbar-nav-menu",
+                                    align_end=True,
+                                    children=[],
+                                ),
+                                dbc.DropdownMenu(
+                                    id="topbar-user-menu",
+                                    label="Account",
+                                    color="secondary",
+                                    size="sm",
+                                    className="topbar-user-menu",
+                                    align_end=True,
+                                    children=[
+                                        html.Div(
+                                            dbc.Switch(
+                                                id="topbar-expert-switch",
+                                                label="Expert",
+                                                value=False,
+                                            ),
+                                            className="px-3 py-2",
+                                        ),
+                                        dbc.DropdownMenuItem(divider=True),
+                                        dbc.DropdownMenuItem(
+                                            [
+                                                html.I(className=ICON_USER_LOGOUT),
+                                                html.Span("Log out"),
+                                            ],
+                                            href="/logout",
+                                            external_link=True,
+                                        ),
+                                    ],
+                                ),
+                            ],
+                            className="ms-auto d-flex align-items-center gap-2",
+                        ),
+                        width=4,
+                        className="d-flex justify-content-end",
+                    ),
+                ],
+                className="g-0 align-items-center",
+            ),
+            fluid=True,
+            className="py-2",
+        ),
+        className="border-bottom",
+        style={
+            "backgroundColor": COLOR_DARK_BLUE,
+            "borderColor": COLOR_MID_GRAY,
+        },
+    )
+    return banner

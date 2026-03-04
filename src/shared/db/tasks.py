@@ -4,7 +4,38 @@ from typing import Any
 
 from sqlalchemy import and_, desc, func, or_, select
 
-from .core import ACTIVE_TASK_STATUSES, Payload, SessionLocal, Tasks, _utc_now
+from .core import Payload, SessionLocal, Tasks, _utc_now
+
+
+ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
+
+
+def _clamp_progress(value: Any, fallback: int = 0) -> int:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        parsed = fallback
+    return max(0, min(100, parsed))
+
+
+def _default_progress(status: str, fallback: int = 0) -> int:
+    normalized = str(status or "").upper()
+    if normalized == "PENDING":
+        return 0
+    if normalized == "RUNNING":
+        return max(1, fallback)
+    if normalized == "COMPLETED":
+        return 100
+    if normalized == "ABORTED":
+        return _clamp_progress(fallback, fallback=0)
+    return fallback
+
+
+def _norm_progress(status: str, progress: int = None):
+    if progress is None:
+        return _default_progress(status)
+    else:
+        return _clamp_progress(progress)
 
 
 def add_task(
@@ -13,10 +44,12 @@ def add_task(
     input_payload: Payload,
     version: str = "v1",
     user_id: str | None = None,
-    status: str = "STARTED",
+    status: str = "PENDING",
+    progress: int | None = None,
 ) -> int | None:
     if SessionLocal is None:
         return None
+    normalized_progress = _norm_progress(status, progress)
     with SessionLocal() as session:
         row = Tasks(
             celery_task_id=celery_task_id,
@@ -25,6 +58,7 @@ def add_task(
             version=version,
             input_payload=input_payload,
             status=status,
+            progress=normalized_progress,
         )
         session.add(row)
         session.commit()
@@ -38,12 +72,20 @@ def update_task(task_id: int, **kwargs: Any) -> bool:
         row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
         if row is None:
             return False
+        pending_progress = kwargs.get("progress")
         for field, value in kwargs.items():
             if field == "task_id":
                 continue
             if not hasattr(row, field):
                 raise ValueError(f"Unknown task field: {field}")
+            if field == "progress":
+                value = _clamp_progress(value, fallback=row.progress or 0)
+            if field == "status" and pending_progress is None:
+                value = str(value)
+                pending_progress = _default_progress(value, fallback=row.progress or 0)
             setattr(row, field, value)
+        if pending_progress is not None:
+            row.progress = _clamp_progress(pending_progress, fallback=row.progress or 0)
         session.commit()
         return True
 
@@ -54,15 +96,24 @@ def update_task_run(
     task_name: str | None = None,
     output_payload: Payload = None,
     error_payload: Payload = None,
+    progress: int | None = None,
 ) -> None:
     if SessionLocal is None:
         return
+    normalized_status = str(status)
     payload = {
-        "status": status,
+        "status": normalized_status,
         "output_payload": output_payload,
         "error_payload": error_payload,
     }
     if task_id is not None:
+        if progress is None:
+            with SessionLocal() as session:
+                row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
+                current_progress = row.progress if row is not None else 0
+            payload["progress"] = _default_progress(normalized_status, fallback=current_progress)
+        else:
+            payload["progress"] = _clamp_progress(progress, fallback=0)
         update_task(task_id=task_id, **payload)
         return
 
@@ -78,6 +129,11 @@ def update_task_run(
             return
         if row is None:
             return
+        payload["progress"] = (
+            _default_progress(normalized_status, fallback=row.progress or 0)
+            if progress is None
+            else _clamp_progress(progress, fallback=row.progress or 0)
+        )
         for field, value in payload.items():
             setattr(row, field, value)
         session.commit()
@@ -117,6 +173,7 @@ def get_task_run(task_ref: int | str) -> dict[str, Any] | None:
             "user_id": row.user_id,
             "version": row.version,
             "status": row.status,
+            "progress": row.progress,
             "input_payload": row.input_payload,
             "output_payload": row.output_payload,
             "error_payload": row.error_payload,
@@ -209,7 +266,7 @@ def get_user_task_monitor(user_id: str | None) -> dict[str, Any]:
     if SessionLocal is None or not normalized_user:
         return {"mode": "idle"}
 
-    running_statuses = ("RECEIVED", "STARTED", "RETRY")
+    running_statuses = ("RUNNING",)
     with SessionLocal() as session:
         active_row = session.scalar(
             select(Tasks)
@@ -222,14 +279,18 @@ def get_user_task_monitor(user_id: str | None) -> dict[str, Any]:
         )
         if active_row is not None:
             mode = "running" if active_row.status in running_statuses else "pending"
-            duration_s = 10
-            if isinstance(active_row.input_payload, dict):
-                duration_s = max(1, int(active_row.input_payload.get("duration_s", 10)))
-            started_at = active_row.updated_at or active_row.created_at
-            elapsed = 0.0
-            if started_at is not None:
-                elapsed = max(0.0, (_utc_now() - started_at).total_seconds())
-            progress = min(95, int((elapsed / duration_s) * 100)) if mode == "running" else 0
+            progress = _clamp_progress(active_row.progress, fallback=0)
+            if mode == "pending":
+                progress = 0
+            elif progress <= 0:
+                duration_s = 10
+                if isinstance(active_row.input_payload, dict):
+                    duration_s = max(1, int(active_row.input_payload.get("duration_s", 10)))
+                started_at = active_row.updated_at or active_row.created_at
+                elapsed = 0.0
+                if started_at is not None:
+                    elapsed = max(0.0, (_utc_now() - started_at).total_seconds())
+                progress = min(95, int((elapsed / duration_s) * 100))
 
             ahead = session.scalar(
                 select(func.count())

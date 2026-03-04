@@ -16,8 +16,6 @@ from werkzeug.security import generate_password_hash
 
 Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
-ACTIVE_TASK_STATUSES = ("PENDING", "RECEIVED", "STARTED", "RETRY")
-
 _DEV = os.getenv("DEV", "true").lower() == "true"
 _DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
 _BACKUP_ON_STARTUP = os.getenv("DB_BACKUP_ON_STARTUP", "true").lower() == "true"
@@ -51,7 +49,10 @@ engine = create_engine(
     },
 ) if _DATABASE_URL else None
 
-SessionLocal = sessionmaker(bind=engine, expire_on_commit=False) if engine else None
+SessionLocal = sessionmaker(
+    bind=engine,
+    expire_on_commit=False,
+) if engine else None
 
 
 class Base(DeclarativeBase):
@@ -77,6 +78,7 @@ class Tasks(Base):
     user_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
     version: Mapped[str] = mapped_column(String(32), default="v1")
     status: Mapped[str] = mapped_column(String(32), index=True)
+    progress: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     input_payload: Mapped[Payload] = mapped_column(JSON)
     output_payload: Mapped[Payload] = mapped_column(JSON, nullable=True)
     error_payload: Mapped[Payload] = mapped_column(JSON, nullable=True)

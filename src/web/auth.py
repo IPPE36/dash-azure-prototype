@@ -160,7 +160,7 @@ def logout():
 
 @bp.route("/logoffCompleted")
 def logoffCompleted():
-    return "Signed out.", 200
+    return render_template("logout.html"), 200
 
 
 def login_required(view: Callable):

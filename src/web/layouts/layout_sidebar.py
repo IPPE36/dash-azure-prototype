@@ -1,4 +1,4 @@
-# src/web/layouts.py
+# src/web/layout/layout_sidebar.py
 
 from typing import Iterable
 
@@ -8,7 +8,6 @@ from dash_extensions.enrich import html
 from web.theme import (
     COLOR_LIGHT_GRAY,
     COLOR_MID_GRAY,
-    COLOR_DARK_BLUE,
 )
 
 
@@ -16,44 +15,20 @@ def build_sidebar_layout(
     *,
     page_title: str,
     content,
+    content_sidebar = [],
     nav_items: Iterable[tuple[str, str]],
-    app_name: str = "Suite",
 ):
-    """Returns banner + sidebar layout..."""
+    """Returns a content layout with page title and main area."""
     panel_padding = "1rem"
-    sidebar_links = [
-        dbc.NavLink(label, href=href, active="exact")
-        for label, href in nav_items
-    ]
-    banner = html.Div(
-        dbc.Container(
-            [
-                dbc.Row(
-                    [
-                        dbc.Col(html.Div(app_name, className="fw-semibold text-white"), width="auto"),
-                        dbc.Col(html.Span(page_title, className="text-white-50"), width="auto"),
-                    ],
-                    className="g-0 justify-content-between align-items-center",
-                )
-            ],
-            fluid=True,
-        ),
-        className="border-bottom rounded-0",
-        style={
-            "backgroundColor": COLOR_DARK_BLUE,
-            "borderColor": COLOR_MID_GRAY,
-            "borderRadius": 0,
-            "padding": panel_padding,
-        },
-    )
+    _ = nav_items
     sidebar = dbc.Col(
         [
-            html.Div("Navigation", className="fw-semibold mb-2"),
-            dbc.Nav(sidebar_links, vertical=True, pills=True, className="gap-1"),
+            html.H3("Menu", className="mb-3"),
+            content_sidebar,
         ],
         xs=12,
         md=4,
-        lg=4,
+        lg=3,
         style={
             "backgroundColor": COLOR_MID_GRAY,
             "padding": panel_padding,
@@ -66,7 +41,7 @@ def build_sidebar_layout(
         ],
         xs=12,
         md=8,
-        lg=8,
+        lg=9,
         style={
             "backgroundColor": COLOR_LIGHT_GRAY,
             "padding": panel_padding,
@@ -77,13 +52,13 @@ def build_sidebar_layout(
         className="g-0",
         style={
             "flex": "1 1 auto",
-            "minHeight": 0,
+            "minHeight": "100vh",
             "overflow": "hidden",
             "backgroundColor": COLOR_LIGHT_GRAY,
         },
     )
     return html.Div(
-        children=[banner, layout],
+        children=[layout],
         style={
             "minHeight": "100vh",
             "display": "flex",
