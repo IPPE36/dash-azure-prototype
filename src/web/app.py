@@ -5,10 +5,9 @@ import redis
 
 from flask_session import Session
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, dcc, DashProxy, TriggerTransform, MultiplexerTransform, page_container
+from dash_extensions.enrich import html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 
 from web.auth import bp as auth_bp, request_guard
-from shared.celery_app import bg_manager
 from shared.db import init_db
 from shared.logs import init_logs
 
@@ -35,12 +34,12 @@ app = DashProxy(
     name=__name__,
     title=f"Suite {_VERSION}",
     update_title=f"Suite {_VERSION}",
-    external_stylesheets=[dbc.themes.BOOTSTRAP],
+    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME],
     transforms=[TriggerTransform(), MultiplexerTransform()],
     use_pages=True,
     prevent_initial_callbacks=True,
     suppress_callback_exceptions=True,
-    background_callback_manager=bg_manager,
+    assets_ignore=r".*\.map$|.*\.txt$|.*\.md$",
 )
 
 server = app.server
@@ -64,14 +63,7 @@ Session(server)
 server.register_blueprint(auth_bp)
 server.before_request(request_guard)
 
-app.layout = html.Div([
-    html.H2("Dash + Pages"),
-    dcc.Link("Home", href="/"),
-    html.Br(),
-    dcc.Link("Jobs", href="/jobs"),
-    html.Hr(),
-    page_container,
-])
+app.layout = html.Div(page_container)
 
 
 if __name__ == "__main__":

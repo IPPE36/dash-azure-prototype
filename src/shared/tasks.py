@@ -1,6 +1,7 @@
 # src/shared/tasks.py
 
 import os
+import time
 import logging
 
 from .celery_app import celery_app
@@ -13,20 +14,23 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="long_task")
-def long_task(x: int, user_id: str | None = None):
+def long_task(x: int, user_id: str | None = None, duration_s: int = 10):
     task = long_task.request
     log_ctx = {"task_id": task.id, "task_name": task.task}
     logger.info("long_task started", extra=log_ctx)
     db_task_id = add_task(
         celery_task_id=task.id,
         task_name=task.task,
-        input_payload={"x": x},
+        input_payload={"x": x, "duration_s": duration_s},
         version=f"v{_VERSION}",
         user_id=user_id,
     )
     # Import lazily so the web process does not initialize model runtime.
     try:
+        # Simulate predictable runtime to test UI progress behavior.
+        time.sleep(max(0, int(duration_s)))
         from worker.model_runtime import get_runtime
+
         runtime = get_runtime()
         result = runtime.predict(x)
         update_task_run(task_id=db_task_id, task_name=task.task, status="SUCCESS", output_payload={"result": result})

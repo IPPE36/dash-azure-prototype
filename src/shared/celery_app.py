@@ -5,7 +5,6 @@ import logging
 
 from celery import Celery
 from celery.signals import worker_process_init
-from dash import CeleryManager
 
 from shared.logs import log_execution
 
@@ -48,8 +47,6 @@ celery_app.conf.update(
     worker_send_task_events=False,
     task_send_sent_event=False,
 )
-
-bg_manager = CeleryManager(celery_app)
 
 @worker_process_init.connect
 @log_execution(logger_name=__name__)

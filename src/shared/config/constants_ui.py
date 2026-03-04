@@ -1,0 +1,1 @@
+# src/shared/config/constants_ui.py
