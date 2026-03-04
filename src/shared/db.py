@@ -17,6 +17,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from .logs import log_execution
 
 
+# dtype for payloads:
 Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 _DEV = os.getenv("DEV", "true").lower() == "true"
@@ -105,7 +106,7 @@ def _latest_backup_at() -> datetime | None:
 def _run_startup_backup() -> Path:
     backup_dir = _get_backup_dir()
     backup_dir.mkdir(parents=True, exist_ok=True)
-    ts = _utc_now().strftime("%d-%m--%Y_%H%M%S")
+    ts = _utc_now().strftime("%d-%m-%Y")
     dump_path = backup_dir / f"dash_{ts}.dump"
     pg_dump_url = _DATABASE_URL
     if "://" in pg_dump_url and "+" in pg_dump_url.split("://", 1)[0]:

@@ -22,13 +22,32 @@ celery_app = Celery(
     include=["shared.tasks"],
 )
 
-celery_app.conf.broker_connection_retry_on_startup = True
-celery_app.conf.broker_connection_max_retries = None
-celery_app.conf.broker_connection_timeout = 5 
-celery_app.conf.broker_transport_options = {
-    "socket_connect_timeout": 5,
-    "socket_timeout": 5,
-}
+celery_app.conf.update(
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    timezone="UTC",
+    enable_utc=True,
+    task_track_started=True,
+    result_expires=86400,  # 1 day
+    task_acks_late=True,
+    task_reject_on_worker_lost=True,
+    worker_prefetch_multiplier=1,
+    broker_connection_retry_on_startup=True,
+    broker_connection_max_retries=None,
+    broker_connection_timeout=5,
+    broker_transport_options={
+        "visibility_timeout": 3600,  # > max expected task runtime
+        "socket_timeout": 5,
+        "socket_connect_timeout": 5,
+        "retry_on_timeout": True,
+    },
+    task_soft_time_limit=300,
+    task_time_limit=360,
+    worker_max_tasks_per_child=200,  # helps with leaks/stability
+    worker_send_task_events=False,
+    task_send_sent_event=False,
+)
 
 bg_manager = CeleryManager(celery_app)
 
