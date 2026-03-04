@@ -30,8 +30,8 @@ layout = html.Div(
 def start_job(n_clicks):
     if not n_clicks:
         raise PreventUpdate
-    res = long_task.delay(n_clicks)
     user_name = get_user_name() or "unknown-user"
+    res = long_task.delay(n_clicks, user_id=user_name)
     return {"task_id": res.id}, False, f"Queued task: {res.id} (user={user_name})"
 
 
@@ -55,8 +55,9 @@ def poll_job(_, data):
         if db_row is not None:
             input_payload = db_row.get("input_payload")
             output_payload = db_row.get("output_payload")
+            user_id = db_row.get("user_id")
             return (
-                f"Done (DB): input={input_payload}, output={output_payload}",
+                f"Done (DB): user={user_id}, input={input_payload}, output={output_payload}",
                 True,
             )
         return f"Done: {r.result}", True

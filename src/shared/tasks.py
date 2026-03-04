@@ -13,14 +13,16 @@ logger = logging.getLogger(__name__)
 
 
 @celery_app.task(name="long_task")
-def long_task(x: int):
+def long_task(x: int, user_id: str | None = None):
     task = long_task.request
     log_ctx = {"task_id": task.id, "task_name": task.task}
     logger.info("long_task started", extra=log_ctx)
     db_task_id = add_task(
+        celery_task_id=task.id,
         task_name=task.task,
         input_payload={"x": x},
         version=f"v{_VERSION}",
+        user_id=user_id,
     )
     # Import lazily so the web process does not initialize model runtime.
     try:

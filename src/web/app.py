@@ -24,7 +24,7 @@ _SECRET = os.getenv("SECRET", "fallback-secret")
 _SCOPE = [s.strip() for s in os.getenv("SCOPE", "User.Read").split(",") if s.strip()]
 _CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
 
-if _DEV:
+if _DEV and not _LOCAL_SERVER:
     os.environ.pop("HTTP_PROXY", None)
     os.environ.pop("HTTPS_PROXY", None)
 

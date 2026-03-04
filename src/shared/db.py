@@ -2,7 +2,10 @@
 
 import logging
 import os
+import subprocess
 import zlib
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Any
 
 from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, desc, inspect, select, text, func
@@ -18,6 +21,9 @@ Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 _DEV = os.getenv("DEV", "true").lower() == "true"
 _DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+_BACKUP_ON_STARTUP = os.getenv("DB_BACKUP_ON_STARTUP", "true").lower() == "true"
+_BACKUP_DIR = os.getenv("DB_BACKUP_DIR", "./db_backups").strip() or "./db_backups"
+_BACKUP_MAX_AGE_HOURS = int(os.getenv("DB_BACKUP_MAX_AGE_HOURS", "168"))
 _DEFAULT_DEV_USERS = (
     ("root", "123", "admin"),
     ("admin", "123", "admin"),
@@ -65,7 +71,9 @@ class Users(Base):
 class Tasks(Base):
     __tablename__ = "tasks"
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    celery_task_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
     task_name: Mapped[str] = mapped_column(String(128), index=True)
+    user_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
     version: Mapped[str] = mapped_column(String(32), default="v1")
     status: Mapped[str] = mapped_column(String(32), index=True)
     input_payload: Mapped[Payload] = mapped_column(JSON)
@@ -75,7 +83,57 @@ class Tasks(Base):
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
-def _sync_missing_columns(conn) -> None:
+
+def _utc_now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
+def _get_backup_dir() -> Path:
+    return Path(_BACKUP_DIR).expanduser().resolve()
+
+
+def _latest_backup_at() -> datetime | None:
+    backup_dir = _get_backup_dir()
+    if not backup_dir.exists():
+        return None
+    dumps = sorted(backup_dir.glob("*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not dumps:
+        return None
+    return datetime.fromtimestamp(dumps[0].stat().st_mtime, tz=timezone.utc)
+
+
+def _run_startup_backup() -> Path:
+    backup_dir = _get_backup_dir()
+    backup_dir.mkdir(parents=True, exist_ok=True)
+    ts = _utc_now().strftime("%Y-%m-%d_%H%M%S")
+    dump_path = backup_dir / f"dash_{ts}.dump"
+    subprocess.run(
+        [
+            "pg_dump",
+            "--format=custom",
+            "--no-owner",
+            "--no-privileges",
+            "--file",
+            str(dump_path),
+            _DATABASE_URL,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    logger.info("startup DB backup created", extra={"dump_path": str(dump_path)})
+    return dump_path
+
+
+def _assert_backup_fresh() -> bool:
+    last = _latest_backup_at()
+    if last is None:
+        return False
+    age = _utc_now() - last
+    return age <= timedelta(hours=_BACKUP_MAX_AGE_HOURS)
+    
+
+def _sync_columns(conn) -> None:
     inspector = inspect(conn)
     preparer = conn.dialect.identifier_preparer
 
@@ -84,7 +142,9 @@ def _sync_missing_columns(conn) -> None:
             continue
 
         existing = {col["name"] for col in inspector.get_columns(table.name, schema=table.schema)}
+        current = {col.name for col in table.columns}
         missing = [col for col in table.columns if col.name not in existing]
+        extra = sorted(existing - current)
         for col in missing:
             col_def = str(CreateColumn(col).compile(dialect=conn.dialect))
             qualified_table = (
@@ -94,6 +154,15 @@ def _sync_missing_columns(conn) -> None:
             )
             conn.execute(text(f"ALTER TABLE {qualified_table} ADD COLUMN {col_def}"))
             logger.info("added missing DB column", extra={"table": table.name, "column": col.name})
+        for col_name in extra:
+            qualified_table = (
+                f"{preparer.quote_schema(table.schema)}.{preparer.quote(table.name)}"
+                if table.schema
+                else preparer.quote(table.name)
+            )
+            quoted_col = preparer.quote(col_name)
+            conn.execute(text(f"ALTER TABLE {qualified_table} DROP COLUMN IF EXISTS {quoted_col}"))
+            logger.info("dropped extra DB column", extra={"table": table.name, "column": col_name})
 
 
 def _add_dev_users() -> None:
@@ -160,8 +229,18 @@ def init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": lock_key})
             try:
+                if not _assert_backup_fresh() and _BACKUP_ON_STARTUP:
+                    try:
+                        _run_startup_backup()
+                    except FileNotFoundError:
+                        logger.warning("pg_dump executable not found; continuing without startup backup")
+                    except subprocess.CalledProcessError as exc:
+                        logger.warning(
+                            "startup DB backup failed; continuing app startup",
+                            extra={"stderr": (exc.stderr or "").strip(), "stdout": (exc.stdout or "").strip()},
+                        )
                 Base.metadata.create_all(bind=conn)
-                _sync_missing_columns(conn)
+                _sync_columns(conn)
                 conn.commit()
             finally:
                 conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
@@ -175,15 +254,19 @@ def init_db() -> None:
 
 @log_execution(logger_name=__name__)
 def add_task(
+    celery_task_id: str,
     task_name: str,
     input_payload: Payload,
     version: str = "v1",
+    user_id: str | None = None,
 ) -> int | None:
     if SessionLocal is None:
         return None
     with SessionLocal() as session:
         row = Tasks(
+            celery_task_id=celery_task_id,
             task_name=task_name,
+            user_id=user_id.strip() if isinstance(user_id, str) and user_id.strip() else None,
             version=version,
             input_payload=input_payload,
             status="STARTED",
@@ -191,6 +274,24 @@ def add_task(
         session.add(row)
         session.commit()
         return row.task_id
+
+
+@log_execution(logger_name=__name__)
+def update_task(task_id: int, **kwargs: Any) -> bool:
+    if SessionLocal is None or not kwargs:
+        return False
+    with SessionLocal() as session:
+        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        if row is None:
+            return False
+        for field, value in kwargs.items():
+            if field == "task_id":
+                continue
+            if not hasattr(row, field):
+                raise ValueError(f"Unknown task field: {field}")
+            setattr(row, field, value)
+        session.commit()
+        return True
 
 
 @log_execution(logger_name=__name__)
@@ -203,10 +304,17 @@ def update_task_run(
 ) -> None:
     if SessionLocal is None:
         return
+    payload = {
+        "status": status,
+        "output_payload": output_payload,
+        "error_payload": error_payload,
+    }
+    if task_id is not None:
+        update_task(task_id=task_id, **payload)
+        return
+
     with SessionLocal() as session:
-        if task_id is not None:
-            row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
-        elif task_name:
+        if task_name:
             row = session.scalar(
                 select(Tasks)
                 .where(Tasks.task_name == task_name)
@@ -217,9 +325,8 @@ def update_task_run(
             return
         if row is None:
             return
-        row.status = status
-        row.output_payload = output_payload
-        row.error_payload = error_payload
+        for field, value in payload.items():
+            setattr(row, field, value)
         session.commit()
 
 
@@ -238,6 +345,13 @@ def get_task_run(task_ref: int | str) -> dict[str, Any] | None:
             if row is None and raw:
                 row = session.scalar(
                     select(Tasks)
+                    .where(Tasks.celery_task_id == raw)
+                    .order_by(desc(Tasks.created_at))
+                    .limit(1)
+                )
+            if row is None and raw:
+                row = session.scalar(
+                    select(Tasks)
                     .where(Tasks.task_name == raw)
                     .order_by(desc(Tasks.created_at))
                     .limit(1)
@@ -246,7 +360,9 @@ def get_task_run(task_ref: int | str) -> dict[str, Any] | None:
             return None
         return {
             "task_id": row.task_id,
+            "celery_task_id": row.celery_task_id,
             "task_name": row.task_name,
+            "user_id": row.user_id,
             "version": row.version,
             "status": row.status,
             "input_payload": row.input_payload,
