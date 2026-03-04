@@ -3,6 +3,8 @@ services:
     build: .
     env_file:
       - ${APP_ENV_FILE:-.env}
+    volumes:
+      - ./db_backups:/app/db_backups
     ports:
       - "8050:8050"
     depends_on:
@@ -16,6 +18,8 @@ services:
     command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "--concurrency=1"]
     env_file:
       - ${APP_ENV_FILE:-.env}
+    volumes:
+      - ./db_backups:/app/db_backups
     depends_on:
       postgres:
         condition: service_healthy
