@@ -2,14 +2,13 @@
 
 import os
 import uuid
-
 import functools
 from collections.abc import Callable
 
 from flask import Blueprint, request, session, current_app, has_request_context, redirect, render_template, url_for
 import msal
 
-from shared.db import add_user, auth_dev_user
+from shared.db.users import add_user, auth_dev_user
 
 
 _REDIRECT_PATH = os.getenv("REDIRECT_PATH", "/getAToken").strip()

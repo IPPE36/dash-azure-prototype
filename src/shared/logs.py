@@ -4,12 +4,12 @@ import json
 import logging
 import os
 import sys
-import time
-from functools import wraps
 from datetime import datetime, timezone
+import threading
 
 
 _CONFIGURED = False
+_CONFIG_LOCK = threading.Lock()
 _LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 _LOG_FORMAT = os.getenv("LOG_FORMAT", "console").lower()
 
@@ -35,64 +35,22 @@ def init_logs() -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
+    with _CONFIG_LOCK:
+        level = getattr(logging, _LOG_LEVEL, logging.INFO)
 
-    level = getattr(logging, _LOG_LEVEL, logging.INFO)
+        root = logging.getLogger()
+        root.setLevel(level)
 
-    root = logging.getLogger()
-    root.setLevel(level)
+        handler = logging.StreamHandler(stream=sys.stdout)
+        if _LOG_FORMAT == "console":
+            handler.setFormatter(logging.Formatter(
+                "%(asctime)s %(levelname)s %(name)s %(message)s"
+            ))
+        elif _LOG_FORMAT == "json":
+            handler.setFormatter(JsonFormatter())
+        else:
+            raise ValueError("LOG_FORMAT needs to be either 'console' or 'json'")
 
-    handler = logging.StreamHandler(stream=sys.stdout)
-    if _LOG_FORMAT == "console":
-        handler.setFormatter(logging.Formatter(
-            "%(asctime)s %(levelname)s %(name)s %(message)s"
-        ))
-    else:
-        handler.setFormatter(JsonFormatter())
-
-    root.handlers.clear()
-    root.addHandler(handler)
-    _CONFIGURED = True
-
-
-def log_execution(
-    logger_name: str | None = None,
-    level: int = logging.INFO,
-    include_args: bool = False,
-):
-    """
-    Decorator that logs function start/end/failure and runtime in milliseconds.
-    Example:
-        @log_execution()
-        def my_func(...):
-            ...
-    """
-    def decorator(func):
-        log = logging.getLogger(logger_name or func.__module__)
-
-        @wraps(func)
-        def wrapper(*args, **kwargs):
-            start = time.perf_counter()
-            extra = {"function": func.__name__}
-            if include_args:
-                extra["args"] = repr(args)
-                extra["kwargs"] = repr(kwargs)
-
-            log.log(level, "function started", extra=extra)
-            try:
-                result = func(*args, **kwargs)
-            except Exception:
-                elapsed_ms = (time.perf_counter() - start) * 1000.0
-                error_extra = dict(extra)
-                error_extra["runtime_ms"] = round(elapsed_ms, 2)
-                log.exception("function failed", extra=error_extra)
-                raise
-
-            elapsed_ms = (time.perf_counter() - start) * 1000.0
-            done_extra = dict(extra)
-            done_extra["runtime_ms"] = round(elapsed_ms, 2)
-            log.log(level, "function completed", extra=done_extra)
-            return result
-
-        return wrapper
-
-    return decorator
+        root.handlers.clear()
+        root.addHandler(handler)
+        _CONFIGURED = True

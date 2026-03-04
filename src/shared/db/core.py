@@ -1,4 +1,4 @@
-# src/shared/db.py
+# src/shared/db/core.py
 
 import logging
 import os
@@ -8,17 +8,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, desc, inspect, select, text, func
+from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, inspect, select, text, func
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase, Mapped, sessionmaker, mapped_column
 from sqlalchemy.schema import CreateColumn
-from werkzeug.security import check_password_hash, generate_password_hash
+from werkzeug.security import generate_password_hash
 
-from .logs import log_execution
-
-
-# dtype for payloads:
 Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
+
+ACTIVE_TASK_STATUSES = ("PENDING", "RECEIVED", "STARTED", "RETRY")
 
 _DEV = os.getenv("DEV", "true").lower() == "true"
 _DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
@@ -49,8 +47,10 @@ engine = create_engine(
             "-c statement_timeout=30000 "
             "-c lock_timeout=5000 "
             "-c idle_in_transaction_session_timeout=60000"
-    )},
+        ),
+    },
 ) if _DATABASE_URL else None
+
 SessionLocal = sessionmaker(bind=engine, expire_on_commit=False) if engine else None
 
 
@@ -82,7 +82,6 @@ class Tasks(Base):
     error_payload: Mapped[Payload] = mapped_column(JSON, nullable=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
-
 
 
 def _utc_now() -> datetime:
@@ -136,7 +135,7 @@ def _assert_backup_fresh() -> bool:
         return False
     age = _utc_now() - last
     return age <= timedelta(hours=_BACKUP_MAX_AGE_HOURS)
-    
+
 
 def _sync_columns(conn) -> None:
     inspector = inspect(conn)
@@ -177,58 +176,21 @@ def _add_dev_users() -> None:
         for username, password, role in _DEFAULT_DEV_USERS:
             existing = session.scalar(select(Users).where(Users.username == username))
             if existing is None:
-                session.add(Users(
-                    username=username,
-                    password_hash=generate_password_hash(password),
-                    role=role,
-                    is_active=True,
-                ))
+                session.add(
+                    Users(
+                        username=username,
+                        password_hash=generate_password_hash(password),
+                        role=role,
+                        is_active=True,
+                    )
+                )
         session.commit()
 
 
-@log_execution(logger_name=__name__)
-def auth_dev_user(username: str, password: str) -> bool:
-    if SessionLocal is None:
-        return False
-    normalized = username.strip()
-    if not normalized or not password:
-        return False
-    with SessionLocal() as session:
-        row = session.scalar(select(Users).where(Users.username == normalized))
-        if row is None or not row.is_active:
-            return False
-        return check_password_hash(row.password_hash, password)
-
-
-@log_execution(logger_name=__name__)
-def add_user(username: str, password_hash: str = "", role: str = "user", exists_ok: bool = True) -> None:
-    if SessionLocal is None:
-        return
-    normalized = username.strip()
-    if not normalized:
-        return
-    normalized_role = role.strip().lower() if role and role.strip() else "user"
-    with SessionLocal() as session:
-        row = session.scalar(select(Users).where(Users.username == normalized))
-        if row is not None:
-            if exists_ok:
-                return
-            raise ValueError(f"User already exists: {normalized}")
-        session.add(Users(
-            username=normalized,
-            password_hash=password_hash or "",
-            role=normalized_role,
-            is_active=True,
-        ))
-        session.commit()
-
-
-@log_execution(logger_name=__name__)
 def init_db() -> None:
     if engine is None:
         logger.info("DATABASE_URL not set; skipping DB initialization")
         return
-    # Multiple processes can import app startup code concurrently; serialize DDL in Postgres.
     lock_key = zlib.crc32(b"shared.db.init_db.create_all")
     try:
         with engine.connect() as conn:
@@ -255,122 +217,3 @@ def init_db() -> None:
     if _DEV:
         _add_dev_users()
     logger.info("database schema initialized")
-
-
-@log_execution(logger_name=__name__)
-def add_task(
-    celery_task_id: str,
-    task_name: str,
-    input_payload: Payload,
-    version: str = "v1",
-    user_id: str | None = None,
-) -> int | None:
-    if SessionLocal is None:
-        return None
-    with SessionLocal() as session:
-        row = Tasks(
-            celery_task_id=celery_task_id,
-            task_name=task_name,
-            user_id=user_id.strip() if isinstance(user_id, str) and user_id.strip() else None,
-            version=version,
-            input_payload=input_payload,
-            status="STARTED",
-        )
-        session.add(row)
-        session.commit()
-        return row.task_id
-
-
-@log_execution(logger_name=__name__)
-def update_task(task_id: int, **kwargs: Any) -> bool:
-    if SessionLocal is None or not kwargs:
-        return False
-    with SessionLocal() as session:
-        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
-        if row is None:
-            return False
-        for field, value in kwargs.items():
-            if field == "task_id":
-                continue
-            if not hasattr(row, field):
-                raise ValueError(f"Unknown task field: {field}")
-            setattr(row, field, value)
-        session.commit()
-        return True
-
-
-@log_execution(logger_name=__name__)
-def update_task_run(
-    status: str,
-    task_id: int | None = None,
-    task_name: str | None = None,
-    output_payload: Payload = None,
-    error_payload: Payload = None,
-) -> None:
-    if SessionLocal is None:
-        return
-    payload = {
-        "status": status,
-        "output_payload": output_payload,
-        "error_payload": error_payload,
-    }
-    if task_id is not None:
-        update_task(task_id=task_id, **payload)
-        return
-
-    with SessionLocal() as session:
-        if task_name:
-            row = session.scalar(
-                select(Tasks)
-                .where(Tasks.task_name == task_name)
-                .order_by(desc(Tasks.created_at))
-                .limit(1)
-            )
-        else:
-            return
-        if row is None:
-            return
-        for field, value in payload.items():
-            setattr(row, field, value)
-        session.commit()
-
-
-@log_execution(logger_name=__name__)
-def get_task_run(task_ref: int | str) -> dict[str, Any] | None:
-    if SessionLocal is None:
-        return None
-    with SessionLocal() as session:
-        row = None
-        if isinstance(task_ref, int):
-            row = session.scalar(select(Tasks).where(Tasks.task_id == task_ref))
-        else:
-            raw = str(task_ref).strip()
-            if raw.isdigit():
-                row = session.scalar(select(Tasks).where(Tasks.task_id == int(raw)))
-            if row is None and raw:
-                row = session.scalar(
-                    select(Tasks)
-                    .where(Tasks.celery_task_id == raw)
-                    .order_by(desc(Tasks.created_at))
-                    .limit(1)
-                )
-            if row is None and raw:
-                row = session.scalar(
-                    select(Tasks)
-                    .where(Tasks.task_name == raw)
-                    .order_by(desc(Tasks.created_at))
-                    .limit(1)
-                )
-        if row is None:
-            return None
-        return {
-            "task_id": row.task_id,
-            "celery_task_id": row.celery_task_id,
-            "task_name": row.task_name,
-            "user_id": row.user_id,
-            "version": row.version,
-            "status": row.status,
-            "input_payload": row.input_payload,
-            "output_payload": row.output_payload,
-            "error_payload": row.error_payload,
-        }

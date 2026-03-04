@@ -6,8 +6,6 @@ import logging
 from celery import Celery
 from celery.signals import worker_process_init
 
-from shared.logs import log_execution
-
 
 _BROKER_URL = os.getenv("CELERY_BROKER_URL")
 _RESULT_BACKEND = os.getenv("CELERY_RESULT_BACKEND")
@@ -43,19 +41,19 @@ celery_app.conf.update(
     },
     task_soft_time_limit=300,
     task_time_limit=360,
+    worker_concurrency=1,
     worker_max_tasks_per_child=200,  # helps with leaks/stability
     worker_send_task_events=False,
     task_send_sent_event=False,
 )
 
 @worker_process_init.connect
-@log_execution(logger_name=__name__)
 def warm_models(**_kwargs):
     # Runs once per worker process so large models are reused by tasks.
-    logger.info("warming model runtime for worker process")
+    logger.info("model runtime warm-up started")
     from worker.model_runtime import warm_up
     warm_up()
-    logger.info("model runtime warm-up complete")
+    logger.info("model runtime warm-up completed")
 
 
 if __name__ == "__main__":

@@ -1,1 +1,5 @@
 # src/web/theme.py
+
+COLOR_DARK_BLUE = "#0B2E5F"
+COLOR_LIGHT_GRAY = "#F0F0F0"
+COLOR_MID_GRAY = "#E5E5E5"
