@@ -37,7 +37,7 @@ def build_top_banner():
                                     id="topbar-nav-menu",
                                     label="Navigation",
                                     color="secondary",
-                                    size="sm",
+                                    size="md",
                                     className="topbar-nav-menu",
                                     align_end=True,
                                     children=[],
@@ -46,14 +46,14 @@ def build_top_banner():
                                     id="topbar-user-menu",
                                     label="Account",
                                     color="secondary",
-                                    size="sm",
+                                    size="md",
                                     className="topbar-user-menu",
                                     align_end=True,
                                     children=[
                                         html.Div(
                                             dbc.Switch(
                                                 id="topbar-expert-switch",
-                                                label="Expert",
+                                                label="Expertmode",
                                                 value=False,
                                             ),
                                             className="px-3 py-2",
@@ -62,7 +62,7 @@ def build_top_banner():
                                         dbc.DropdownMenuItem(
                                             [
                                                 html.I(className=ICON_USER_LOGOUT),
-                                                html.Span("Log out"),
+                                                html.Span("Logout"),
                                             ],
                                             href="/logout",
                                             external_link=True,
