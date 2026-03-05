@@ -146,8 +146,7 @@ def auth_response():
 
 @bp.route("/logout")
 def logout():
-    session.pop("dev_authenticated", None)
-    session.pop("user_name", None)
+    session.clear()
     if _dev_auth_enabled():
         return redirect(url_for("auth.login"))
     if _oidc_auth_enabled():
