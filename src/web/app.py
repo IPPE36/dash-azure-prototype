@@ -5,14 +5,13 @@ import redis
 
 from flask_session import Session
 import dash_bootstrap_components as dbc
-from dash import page_registry
-from dash_extensions.enrich import Input, Output, callback, dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
+from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 
 from shared.db import init_db
 from shared.logs import init_logs
-from .auth import bp as auth_bp, get_user_name, request_guard
+from .auth import bp as auth_bp, request_guard
 from .layouts.layout_banner import build_top_banner
-from .theme import ICON_PAGE_HOME, ICON_PAGE_APP
+from .callbacks.banner import register_callbacks_banner
 
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
@@ -67,43 +66,13 @@ Session(server)
 server.register_blueprint(auth_bp)
 server.before_request(request_guard)
 
-
 app.layout = html.Div([
     dcc.Location(id="app-location"),
     build_top_banner(),
     page_container,
 ])
 
-
-@callback(
-    Output("topbar-nav-menu", "children"),
-    Output("topbar-user-menu", "label"),
-    Output("topbar-nav-menu", "label"),
-    Input("app-location", "pathname"),
-)
-def sync_top_banner(pathname: str | None):
-    normalized_path = pathname or "/"
-    nav_items = []
-    for page in page_registry.values():
-        page_path = str(page.get("path") or "")
-        page_name = str(page.get("name") or page.get("title") or page_path or "Page")
-        icon = ICON_PAGE_HOME if page_name == "Home" else ICON_PAGE_APP
-        if page_path:
-            nav_items.append(
-                dbc.DropdownMenuItem(
-                    [
-                        html.I(className=icon),
-                        html.Span(page_name),
-                    ],
-                    href=page_path,
-                    active=(page_path == normalized_path),
-                )
-            )
-        if page.get("path") == normalized_path:
-            page_title = str(page.get("name") or page.get("title") or f"{_APP_NAME}")
-    user_name = get_user_name() or "Account"
-    return nav_items, user_name, page_title
-
+register_callbacks_banner(app)
 
 if __name__ == "__main__":
     if _DEV:
