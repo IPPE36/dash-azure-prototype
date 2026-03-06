@@ -1,65 +1,74 @@
 # src/web/pages/jobs.py
 
-import time
-from uuid import uuid4
+import os
+import uuid
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, dcc, Input, Output, callback, register_page
+from dash_extensions.enrich import html, dcc, Input, State, Output, Trigger, no_update, callback, register_page
 from dash.exceptions import PreventUpdate
 
-from shared.celery_app import celery_app
-from shared.db.tasks import add_task, delete_task_run, get_task_queue_position, get_user_task_monitor
+from shared.db.users import get_user_id
+from shared.db.tasks import add_task, get_queue_position, get_user_active_task_count, get_queue_length, get_next_user_task_id, delete_task, get_task, set_celery_id
 from shared.tasks import long_task
 from web.auth import get_user_name
-from web.layouts.layout_sidebar import build_sidebar_layout
+from web.layouts.sidebar import build_sidebar_layout
+
+
+_MAX_USER_TASKS = 3
+_INTERVAL_FAST = os.getenv("JOB_UPDATE_INTERVAL_FAST", 1000)
+_INTERVAL_SLOW = os.getenv("JOB_UPDATE_INTERVAL_SLOW", 5000)
+
 
 register_page(__name__, path="/jobs")
-PROGRESS_VISIBLE_STYLE = {"height": "28px", "marginTop": "12px"}
-PROGRESS_HIDDEN_STYLE = {"height": "28px", "marginTop": "12px", "display": "none"}
-BUTTON_VISIBLE_STYLE = {"marginTop": "12px", "display": "inline-block"}
-BUTTON_HIDDEN_STYLE = {"marginTop": "12px", "display": "none"}
-FAST_POLL_MS = 1000
-IDLE_POLL_MS = 30000
 
 
-def _render_monitor(monitor):
-    mode = monitor.get("mode", "idle")
-    if mode == "running":
-        progress = int(monitor.get("progress", 0))
-        return (
-            f"Queue position: {monitor['position']}/{monitor['total_active']}",
-            False,
-            FAST_POLL_MS,
-            progress,
-            f"{progress}%",
-            "info",
-            True,
-            PROGRESS_VISIBLE_STYLE,
-            BUTTON_VISIBLE_STYLE,
+job_card = dbc.Card([
+    dcc.ConfirmDialog(id="cnf_job", message=""),
+    dcc.Store(id="task_id_current", data=None),
+    dcc.Store(id="task_id_finished", data=None),
+    dcc.Interval(id="poll", interval=1000, disabled=False, n_intervals=0, max_intervals=200),
+    dbc.CardHeader([
+        html.H5("Active Jobs", className="mb-2"),
+        html.Div(
+            [
+                dbc.InputGroup(
+                    [
+                        dbc.Input(id="inp_submit_job", type="text", placeholder="Job Name"),
+                        dbc.Button("Submit", id="btn_submit_job", color="primary"),
+                    ],
+                    className="flex-grow-1 me-2"
+                ),
+                dbc.Button("Cancel", disabled=True, id="btn_cancel_job", color="danger"),
+            ],
+            className="d-flex align-items-center"
         )
-    if mode == "pending":
-        return (
-            f"Pending. Next of your tasks is position {monitor['position']} in queue.",
-            False,
-            FAST_POLL_MS,
-            0,
-            "Pending",
-            "secondary",
-            False,
-            PROGRESS_VISIBLE_STYLE,
-            BUTTON_VISIBLE_STYLE,
-        )
-    return (
-        "No active or pending tasks.",
-        False,
-        IDLE_POLL_MS,
-        0,
-        "0%",
-        "secondary",
-        False,
-        PROGRESS_HIDDEN_STYLE,
-        BUTTON_HIDDEN_STYLE,
-    )
+    ]),
+    dbc.Collapse(
+        dbc.CardBody(
+            "HI"
+        ),
+        id="crd_body_clps_job",
+        is_open=False,
+    ),
+    dbc.CardFooter([
+        html.Span(id="status", className="mb-2"),
+        html.Div(
+            [
+                html.Span("Progress:", className="me-3"),
+                dbc.Progress(
+                    id="progress",
+                    value=0,
+                    max=100,
+                    label="0%",
+                    color="secondary",
+                    className="flex-grow-1",
+                ),
+            ],
+            className="d-flex align-items-center",
+        ),
+    ]),
+], style={"width": "50rem"})
+
 
 layout = build_sidebar_layout(
     page_title="Jobs",
@@ -67,155 +76,124 @@ layout = build_sidebar_layout(
         ("Home", "/"),
         ("Jobs", "/jobs"),
     ],
-    content=html.Div(
-        [
-            html.Button("Start background job", id="btn"),
-            dcc.Store(id="task-store"),
-            dcc.Store(id="task-meta"),
-            dcc.Interval(id="poll", interval=IDLE_POLL_MS, disabled=False),
-            dbc.Row(
-                [
-                    dbc.Col(
-                        dbc.Progress(
-                            id="progress",
-                            value=0,
-                            max=100,
-                            label="0%",
-                            striped=True,
-                            animated=False,
-                            style=PROGRESS_HIDDEN_STYLE,
-                        ),
-                        xs=10,
-                        md=11,
-                    ),
-                    dbc.Col(
-                        dbc.Button(
-                            "Delete",
-                            id="btn-cancel-task",
-                            color="danger",
-                            size="sm",
-                            className="rounded-0",
-                            style=BUTTON_HIDDEN_STYLE,
-                        ),
-                        xs=2,
-                        md=1,
-                        className="d-flex align-items-start justify-content-end",
-                    ),
-                ],
-                className="g-2 align-items-start",
-            ),
-            html.Div(id="status", children="Idle."),
-        ]
-    ),
+    content=job_card
 )
-
 
 @callback(
-    Output("task-store", "data"),
-    Output("task-meta", "data"),
+    Output("cnf_job", "displayed"),
+    Output("cnf_job", "message"),
+    Output("poll", "n_intervals"),
     Output("poll", "disabled"),
-    Output("poll", "interval"),
-    Output("status", "children"),
-    Output("progress", "value"),
-    Output("progress", "label"),
-    Output("progress", "color"),
-    Output("progress", "animated"),
-    Output("progress", "style"),
-    Output("btn-cancel-task", "style"),
-    Input("btn", "n_clicks"),
+    Output("task_id_current", "data"),
+    Input("btn_submit_job", "n_clicks"),
+    State("inp_submit_job", "value")
 )
-def start_job(n_clicks):
-    if not n_clicks:
-        raise PreventUpdate
+def start_job(n_clicks, task_name):
 
-    user_name = get_user_name() or "unknown-user"
-    duration_s = 10
-    task_id = str(uuid4())
-    add_task(
-        celery_task_id=task_id,
-        task_name="long_task",
-        input_payload={"x": n_clicks, "duration_s": duration_s},
-        user_id=user_name,
-        status="PENDING",
+    if not task_name and n_clicks:
+        return True, "Please provide a task name!", no_update, no_update, no_update
+
+    user_name = get_user_name()
+    user_id = get_user_id(user_name)
+    
+    n_active = get_user_active_task_count(user_id)
+    if n_active >= _MAX_USER_TASKS:
+        return True, f"Maximum number of tasks = {_MAX_USER_TASKS}!", no_update, no_update, no_update
+    
+    celery_id = str(uuid.uuid4())
+
+    payload = 0
+
+    task_id = add_task(
+        user_id=user_id,
+        task_name=task_name,
+        input_payload={"x": payload},
     )
-    res = long_task.apply_async(args=[n_clicks], kwargs={"user_id": user_name, "duration_s": duration_s}, task_id=task_id)
-    queue_info = get_task_queue_position(task_id)
-    queue_status = ""
-    if queue_info is not None and queue_info.get("position") is not None:
-        queue_status = f" | queue position: {queue_info['position']}/{queue_info['total_active']}"
-    return (
-        {"task_id": res.id},
-        {"started_at": time.time(), "duration_s": duration_s},
-        False,
-        FAST_POLL_MS,
-        f"Queued task: {res.id} (user={user_name}){queue_status}",
-        0,
-        "Pending",
-        "secondary",
-        False,
-        PROGRESS_VISIBLE_STYLE,
-        BUTTON_VISIBLE_STYLE,
+
+    set_celery_id(task_id, celery_id)
+
+    # schedule task with celery task id (string!)
+    long_task.apply_async(
+        args=[payload],
+        kwargs={"task_id": task_id},
+        task_id=celery_id,
     )
+
+    task_id = get_next_user_task_id(user_id)
+    return False, no_update, 0, False, task_id
 
 
 @callback(
     Output("status", "children"),
-    Output("poll", "disabled"),
-    Output("poll", "interval"),
     Output("progress", "value"),
     Output("progress", "label"),
-    Output("progress", "color"),
-    Output("progress", "animated"),
-    Output("progress", "style"),
-    Output("btn-cancel-task", "style"),
+    Output("poll", "interval"),
+    Output("poll", "disabled"),
+    Output("task_id_finished", "data"),
+    Output("btn_cancel_job", "disabled"),
+    Output("crd_body_clps_job", "is_open"),
     Input("poll", "n_intervals"),
+    State("task_id_current", "data"),
 )
-def poll_job(_):
-    if not _:
+def poll_job(n_intervals, task_id):
+
+    if not n_intervals:
         raise PreventUpdate
-    user_name = get_user_name() or "unknown-user"
-    monitor = get_user_task_monitor(user_name)
-    return _render_monitor(monitor)
+    
+    if task_id is None:
+        return "", 0, "", _INTERVAL_FAST, True, no_update, True, False
+
+    task = get_task(task_id)
+    if task is None:
+        return "", 0, "", _INTERVAL_FAST, True, no_update, True, False
+    
+    status = task["status"]
+    
+    # n = get_queue_length()
+    info = f"{status} {task['task_name']}"
+
+    if status == "PENDING":
+        pos = get_queue_position(task["task_id"])
+        interval = _INTERVAL_SLOW if pos > 1 else _INTERVAL_FAST
+        return info, no_update, no_update, interval, False, no_update, True, True
+    
+    if status in {"COMPLETED", "ABORTED"}:
+        return "", 100, "100%", _INTERVAL_FAST, False, task_id, True, True
+    
+    progress = int(task.get("progress") or 0)
+    return info, progress, f"{progress}%", _INTERVAL_FAST, False, no_update, False, True
 
 
 @callback(
-    Output("status", "children"),
+    Output("poll", "n_intervals"),
+    Output("task_id_current", "data"),
+    Trigger("task_id_finished", "data"),
+)
+def next_job():
+    user_name = get_user_name()
+    user_id = get_user_id(user_name)
+    task_id = get_next_user_task_id(user_id)
+    return 0, task_id
+
+
+@callback(
     Output("poll", "disabled"),
-    Output("poll", "interval"),
+    Output("status", "children"),
+    Output("poll", "n_intervals"),
+    Output("task_id_current", "data"),
     Output("progress", "value"),
     Output("progress", "label"),
-    Output("progress", "color"),
-    Output("progress", "animated"),
-    Output("progress", "style"),
-    Output("btn-cancel-task", "style"),
-    Input("btn-cancel-task", "n_clicks"),
+    Output("crd_body_clps_job", "is_open"),
+    Trigger("btn_cancel_job", "n_clicks"),
+    State("task_id_current", "data"),
 )
-def cancel_oldest_task(n_clicks):
-    if not n_clicks:
-        raise PreventUpdate
-    user_name = get_user_name() or "unknown-user"
-    monitor = get_user_task_monitor(user_name)
-    if monitor.get("mode") == "idle":
-        return _render_monitor(monitor)
-
-    task_id = monitor.get("task_id")
-    if task_id:
-        try:
-            celery_app.control.revoke(task_id, terminate=(monitor.get("mode") == "running"))
-        except Exception:
-            pass
-        delete_task_run(task_id)
-
-    updated_monitor = get_user_task_monitor(user_name)
-    rendered = _render_monitor(updated_monitor)
-    return (
-        f"Deleted task: {task_id}",
-        rendered[1],
-        rendered[2],
-        rendered[3],
-        rendered[4],
-        rendered[5],
-        rendered[6],
-        rendered[7],
-        rendered[8],
-    )
+def delete_current_task(task_id):
+    if not task_id:
+        return  True, no_update, no_update, no_update, no_update, no_update, no_update
+    delete_task(task_id)    
+    user_name = get_user_name()
+    user_id = get_user_id(user_name)
+    task_id = get_next_user_task_id(user_id)
+    if not task_id:
+        return True, "", 0, no_update, 0, "", False
+    return False, "", 0, task_id, 0, "", True

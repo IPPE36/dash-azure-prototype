@@ -6,8 +6,6 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
 from web.theme import (
-    COLOR_DARK_BLUE,
-    COLOR_MID_GRAY,
     ICON_PAGE_APP,
     ICON_USER_LOGOUT,
 )
@@ -19,7 +17,7 @@ def build_top_banner():
     banner = html.Div(
         dbc.Container(
             dbc.Row(
-                [
+                [   
                     dbc.Col(
                         html.Div(
                             [
@@ -36,18 +34,18 @@ def build_top_banner():
                                 dbc.DropdownMenu(
                                     id="topbar-nav-menu",
                                     label="Navigation",
-                                    color="secondary",
+                                    color="primary",
                                     size="md",
-                                    className="topbar-nav-menu",
+                                    className="topbar-nav-menu border border-white",
                                     align_end=True,
                                     children=[],
                                 ),
                                 dbc.DropdownMenu(
                                     id="topbar-user-menu",
                                     label="Account",
-                                    color="secondary",
+                                    color="primary",
                                     size="md",
-                                    className="topbar-user-menu",
+                                    className="topbar-user-menu border border-white",
                                     align_end=True,
                                     children=[
                                         html.Div(
@@ -81,10 +79,6 @@ def build_top_banner():
             fluid=True,
             className="py-2",
         ),
-        className="border-bottom",
-        style={
-            "backgroundColor": COLOR_DARK_BLUE,
-            "borderColor": COLOR_MID_GRAY,
-        },
+        className="bg-primary border-bottom",
     )
     return banner

@@ -62,9 +62,9 @@ class Base(DeclarativeBase):
 class Users(Base):
     __tablename__ = "users"
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    username: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    username: Mapped[str] = mapped_column(String(128))
     password_hash: Mapped[str] = mapped_column(String(255))
-    role: Mapped[str] = mapped_column(String(32), default="user", server_default="user", index=True)
+    role: Mapped[str] = mapped_column(String(32), default="user", server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
@@ -73,11 +73,11 @@ class Users(Base):
 class Tasks(Base):
     __tablename__ = "tasks"
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    celery_task_id: Mapped[str | None] = mapped_column(String(64), index=True, nullable=True)
-    task_name: Mapped[str] = mapped_column(String(128), index=True)
-    user_id: Mapped[str | None] = mapped_column(String(128), index=True, nullable=True)
+    user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    celery_id: Mapped[str | None] = mapped_column(String(255), index=True, nullable=True)
+    task_name: Mapped[str] = mapped_column(String(128))
     version: Mapped[str] = mapped_column(String(32), default="v1")
-    status: Mapped[str] = mapped_column(String(32), index=True)
+    status: Mapped[str] = mapped_column(String(32))
     progress: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
     input_payload: Mapped[Payload] = mapped_column(JSON)
     output_payload: Mapped[Payload] = mapped_column(JSON, nullable=True)

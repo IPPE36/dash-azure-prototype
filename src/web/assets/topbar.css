@@ -11,3 +11,17 @@
     font-weight: 900;
     margin-right: 0.5rem;
 }
+
+#btn_cancel_job::before {
+    content: "\f1f8";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+#btn_submit_job::before {
+    content: "\f061";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}

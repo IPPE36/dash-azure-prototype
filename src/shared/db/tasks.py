@@ -1,64 +1,28 @@
 # src/shared/db/tasks.py
 
+import os
 from typing import Any
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import and_, select, update, func
 
-from .core import Payload, SessionLocal, Tasks, _utc_now
+from .core import Payload, SessionLocal, Tasks
 
 
 ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
+_VERSION = os.getenv("APP_VERSION", "1.0")
 
 
-def _clamp_progress(value: Any, fallback: int = 0) -> int:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
-        parsed = fallback
-    return max(0, min(100, parsed))
-
-
-def _default_progress(status: str, fallback: int = 0) -> int:
-    normalized = str(status or "").upper()
-    if normalized == "PENDING":
-        return 0
-    if normalized == "RUNNING":
-        return max(1, fallback)
-    if normalized == "COMPLETED":
-        return 100
-    if normalized == "ABORTED":
-        return _clamp_progress(fallback, fallback=0)
-    return fallback
-
-
-def _norm_progress(status: str, progress: int = None):
-    if progress is None:
-        return _default_progress(status)
-    else:
-        return _clamp_progress(progress)
-
-
-def add_task(
-    celery_task_id: str,
-    task_name: str,
-    input_payload: Payload,
-    version: str = "v1",
-    user_id: str | None = None,
-    status: str = "PENDING",
-    progress: int | None = None,
-) -> int | None:
+def add_task(user_id: int, task_name: str, input_payload: Payload) -> int | None:
     if SessionLocal is None:
         return None
-    normalized_progress = _norm_progress(status, progress)
     with SessionLocal() as session:
         row = Tasks(
-            celery_task_id=celery_task_id,
+            user_id=user_id,
             task_name=task_name,
-            user_id=user_id.strip() if isinstance(user_id, str) and user_id.strip() else None,
-            version=version,
+            version=_VERSION,
             input_payload=input_payload,
-            status=status,
-            progress=normalized_progress,
+            status="PENDING",
+            progress=0,
         )
         session.add(row)
         session.commit()
@@ -69,108 +33,43 @@ def update_task(task_id: int, **kwargs: Any) -> bool:
     if SessionLocal is None or not kwargs:
         return False
     with SessionLocal() as session:
-        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
+        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id).limit(1))
         if row is None:
             return False
-        pending_progress = kwargs.get("progress")
-        for field, value in kwargs.items():
-            if field == "task_id":
-                continue
-            if not hasattr(row, field):
-                raise ValueError(f"Unknown task field: {field}")
-            if field == "progress":
-                value = _clamp_progress(value, fallback=row.progress or 0)
-            if field == "status" and pending_progress is None:
-                value = str(value)
-                pending_progress = _default_progress(value, fallback=row.progress or 0)
-            setattr(row, field, value)
-        if pending_progress is not None:
-            row.progress = _clamp_progress(pending_progress, fallback=row.progress or 0)
+        for key, value in kwargs.items():
+            if key.endswith("_id"):
+                raise ValueError(f"Task field is protected: {key}")
+            if not hasattr(row, key):
+                raise ValueError(f"Unknown task field: {key}")
+            setattr(row, key, value)
+        session.commit()
+        return True
+    
+
+def delete_task(task_id: int) -> bool:
+    if SessionLocal is None:
+        return False
+    with SessionLocal() as session:
+        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id).limit(1))
+        if row is None:
+            return False
+        session.delete(row)
         session.commit()
         return True
 
 
-def update_task_run(
-    status: str,
-    task_id: int | None = None,
-    task_name: str | None = None,
-    output_payload: Payload = None,
-    error_payload: Payload = None,
-    progress: int | None = None,
-) -> None:
-    if SessionLocal is None:
-        return
-    normalized_status = str(status)
-    payload = {
-        "status": normalized_status,
-        "output_payload": output_payload,
-        "error_payload": error_payload,
-    }
-    if task_id is not None:
-        if progress is None:
-            with SessionLocal() as session:
-                row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
-                current_progress = row.progress if row is not None else 0
-            payload["progress"] = _default_progress(normalized_status, fallback=current_progress)
-        else:
-            payload["progress"] = _clamp_progress(progress, fallback=0)
-        update_task(task_id=task_id, **payload)
-        return
-
-    with SessionLocal() as session:
-        if task_name:
-            row = session.scalar(
-                select(Tasks)
-                .where(Tasks.task_name == task_name)
-                .order_by(desc(Tasks.created_at))
-                .limit(1)
-            )
-        else:
-            return
-        if row is None:
-            return
-        payload["progress"] = (
-            _default_progress(normalized_status, fallback=row.progress or 0)
-            if progress is None
-            else _clamp_progress(progress, fallback=row.progress or 0)
-        )
-        for field, value in payload.items():
-            setattr(row, field, value)
-        session.commit()
-
-
-def get_task_run(task_ref: int | str) -> dict[str, Any] | None:
+def get_task(task_id: int) -> dict[str, Any] | None:
     if SessionLocal is None:
         return None
     with SessionLocal() as session:
-        row = None
-        if isinstance(task_ref, int):
-            row = session.scalar(select(Tasks).where(Tasks.task_id == task_ref))
-        else:
-            raw = str(task_ref).strip()
-            if raw.isdigit():
-                row = session.scalar(select(Tasks).where(Tasks.task_id == int(raw)))
-            if row is None and raw:
-                row = session.scalar(
-                    select(Tasks)
-                    .where(Tasks.celery_task_id == raw)
-                    .order_by(desc(Tasks.created_at))
-                    .limit(1)
-                )
-            if row is None and raw:
-                row = session.scalar(
-                    select(Tasks)
-                    .where(Tasks.task_name == raw)
-                    .order_by(desc(Tasks.created_at))
-                    .limit(1)
-                )
+        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
         if row is None:
             return None
         return {
             "task_id": row.task_id,
-            "celery_task_id": row.celery_task_id,
-            "task_name": row.task_name,
             "user_id": row.user_id,
+            "celery_id": row.celery_id,
+            "task_name": row.task_name,
             "version": row.version,
             "status": row.status,
             "progress": row.progress,
@@ -178,171 +77,120 @@ def get_task_run(task_ref: int | str) -> dict[str, Any] | None:
             "output_payload": row.output_payload,
             "error_payload": row.error_payload,
         }
+    
+def get_user_active_task_count(user_id: int) -> int:
+    if SessionLocal is None:
+        return 0
+    with SessionLocal() as session:
+        stmt = select(func.count()).select_from(Tasks).where(
+            and_(
+                Tasks.user_id == user_id,
+                Tasks.status.in_(ACTIVE_TASK_STATUSES),
+            )
+        )
+        return session.scalar(stmt) or 0
+    
 
-
-def get_task_queue_position(task_ref: int | str) -> dict[str, Any] | None:
+def get_next_user_task_id(user_id: int) -> int | None:
     if SessionLocal is None:
         return None
     with SessionLocal() as session:
-        row = None
-        if isinstance(task_ref, int):
-            row = session.scalar(select(Tasks).where(Tasks.task_id == task_ref))
-        else:
-            raw = str(task_ref).strip()
-            if raw.isdigit():
-                row = session.scalar(select(Tasks).where(Tasks.task_id == int(raw)))
-            if row is None and raw:
-                row = session.scalar(
-                    select(Tasks)
-                    .where(Tasks.celery_task_id == raw)
-                    .order_by(desc(Tasks.created_at))
-                    .limit(1)
-                )
-
-        if row is None:
-            return None
-
-        total_active = session.scalar(
-            select(func.count()).select_from(Tasks).where(Tasks.status.in_(ACTIVE_TASK_STATUSES))
-        ) or 0
-
-        if row.status not in ACTIVE_TASK_STATUSES:
-            return {
-                "status": row.status,
-                "position": None,
-                "total_active": int(total_active),
-                "user_position": None,
-                "user_total_active": 0,
-            }
-
-        ahead = session.scalar(
-            select(func.count())
-            .select_from(Tasks)
+        stmt = (
+            select(Tasks.task_id)
             .where(
-                Tasks.status.in_(ACTIVE_TASK_STATUSES),
-                or_(
-                    Tasks.created_at < row.created_at,
-                    and_(Tasks.created_at == row.created_at, Tasks.task_id < row.task_id),
-                ),
-            )
-        ) or 0
-
-        user_total_active = 0
-        user_position = None
-        if row.user_id:
-            user_total_active = session.scalar(
-                select(func.count())
-                .select_from(Tasks)
-                .where(
+                and_(
+                    Tasks.user_id == user_id,
                     Tasks.status.in_(ACTIVE_TASK_STATUSES),
-                    Tasks.user_id == row.user_id,
                 )
-            ) or 0
-            user_ahead = session.scalar(
-                select(func.count())
-                .select_from(Tasks)
-                .where(
-                    Tasks.status.in_(ACTIVE_TASK_STATUSES),
-                    Tasks.user_id == row.user_id,
-                    or_(
-                        Tasks.created_at < row.created_at,
-                        and_(Tasks.created_at == row.created_at, Tasks.task_id < row.task_id),
-                    ),
-                )
-            ) or 0
-            user_position = int(user_ahead) + 1
-
-        return {
-            "status": row.status,
-            "position": int(ahead) + 1,
-            "total_active": int(total_active),
-            "user_position": user_position,
-            "user_total_active": int(user_total_active),
-        }
-
-
-def get_user_task_monitor(user_id: str | None) -> dict[str, Any]:
-    normalized_user = (user_id or "").strip()
-    if SessionLocal is None or not normalized_user:
-        return {"mode": "idle"}
-
-    running_statuses = ("RUNNING",)
-    with SessionLocal() as session:
-        active_row = session.scalar(
-            select(Tasks)
-            .where(
-                Tasks.user_id == normalized_user,
-                Tasks.status.in_(ACTIVE_TASK_STATUSES),
             )
-            .order_by(Tasks.created_at.asc(), Tasks.task_id.asc())
+            .order_by(Tasks.task_id.asc())   # oldest first
             .limit(1)
         )
-        if active_row is not None:
-            mode = "running" if active_row.status in running_statuses else "pending"
-            progress = _clamp_progress(active_row.progress, fallback=0)
-            if mode == "pending":
-                progress = 0
-            elif progress <= 0:
-                duration_s = 10
-                if isinstance(active_row.input_payload, dict):
-                    duration_s = max(1, int(active_row.input_payload.get("duration_s", 10)))
-                started_at = active_row.updated_at or active_row.created_at
-                elapsed = 0.0
-                if started_at is not None:
-                    elapsed = max(0.0, (_utc_now() - started_at).total_seconds())
-                progress = min(95, int((elapsed / duration_s) * 100))
+        return session.scalar(stmt)
+    
 
-            ahead = session.scalar(
-                select(func.count())
-                .select_from(Tasks)
-                .where(
-                    Tasks.status.in_(ACTIVE_TASK_STATUSES),
-                    or_(
-                        Tasks.created_at < active_row.created_at,
-                        and_(
-                            Tasks.created_at == active_row.created_at,
-                            Tasks.task_id < active_row.task_id,
-                        ),
-                    ),
-                )
-            ) or 0
-            total_active = session.scalar(
-                select(func.count()).select_from(Tasks).where(Tasks.status.in_(ACTIVE_TASK_STATUSES))
-            ) or 0
-
-            return {
-                "mode": mode,
-                "db_task_id": active_row.task_id,
-                "task_id": active_row.celery_task_id,
-                "state": active_row.status,
-                "progress": progress,
-                "position": int(ahead) + 1,
-                "total_active": int(total_active),
-            }
-
-    return {"mode": "idle"}
-
-
-def delete_task_run(task_ref: int | str) -> bool:
+def get_queue_length() -> int:
     if SessionLocal is None:
-        return False
+        return 0
     with SessionLocal() as session:
-        row = None
-        if isinstance(task_ref, int):
-            row = session.scalar(select(Tasks).where(Tasks.task_id == task_ref))
-        else:
-            raw = str(task_ref).strip()
-            if raw.isdigit():
-                row = session.scalar(select(Tasks).where(Tasks.task_id == int(raw)))
-            if row is None and raw:
-                row = session.scalar(
-                    select(Tasks)
-                    .where(Tasks.celery_task_id == raw)
-                    .order_by(desc(Tasks.created_at))
-                    .limit(1)
-                )
+        stmt = select(func.count()).select_from(Tasks).where(
+            Tasks.status.in_(ACTIVE_TASK_STATUSES)
+        )
+        return session.scalar(stmt) or 0
+    
+    
+def get_queue_position(task_id: int) -> int | None:
+    if SessionLocal is None:
+        return None
+    with SessionLocal() as session:
+        row = session.scalar(select(Tasks.task_id).where(Tasks.task_id == task_id).limit(1))
         if row is None:
-            return False
-        session.delete(row)
+            return None
+        stmt = select(func.count()).select_from(Tasks).where(
+            and_(
+                Tasks.status.in_(ACTIVE_TASK_STATUSES),
+                Tasks.task_id <= task_id,
+            )
+        )
+        return session.scalar(stmt)
+    
+
+def get_user_task_rows(
+    user_id: int,
+    *,
+    include_payloads: bool = True,
+    newest_first: bool = True,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """
+    Returns user tasks as list[dict], suitable for pd.DataFrame(rows).
+    - include_payloads: include input/output/error payload dicts (can be large)
+    - newest_first: order by task_id desc (default) else asc
+    - limit: optionally cap number of rows
+    """
+    if SessionLocal is None:
+        return []
+    with SessionLocal() as session:
+        stmt = select(Tasks).where(Tasks.user_id == user_id)
+        if newest_first:
+            stmt = stmt.order_by(Tasks.task_id.desc())
+        else:
+            stmt = stmt.order_by(Tasks.task_id.asc())
+        if limit is not None:
+            stmt = stmt.limit(limit)
+        rows = session.scalars(stmt).all()
+
+        out: list[dict[str, Any]] = []
+        for row in rows:
+            item: dict[str, Any] = {
+                "task_id": row.task_id,
+                "user_id": row.user_id,
+                "celery_id": row.celery_id,
+                "task_name": row.task_name,
+                "version": row.version,
+                "status": row.status,
+                "progress": row.progress,
+            }
+            if include_payloads:
+                item.update(
+                    {
+                        "input_payload": row.input_payload,
+                        "output_payload": row.output_payload,
+                        "error_payload": row.error_payload,
+                    }
+                )
+            out.append(item)
+        return out
+    
+
+def set_celery_id(task_id: int, celery_id: str) -> None:
+    if SessionLocal is None:
+        return
+
+    with SessionLocal() as session:
+        session.execute(
+            update(Tasks)
+            .where(Tasks.task_id == task_id)
+            .values(celery_id=celery_id)
+        )
         session.commit()
-        return True
