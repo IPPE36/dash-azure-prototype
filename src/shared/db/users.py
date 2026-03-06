@@ -43,14 +43,15 @@ def add_user(username: str, password_hash: str = "", role: str = "user", exists_
         session.commit()
 
 
-def get_user_id(username: str) -> int:
+def get_user_id(username: str) -> int | None:
     if SessionLocal is None:
         return None
+
     normalized = username.strip()
     if not normalized:
         return None
+
     with SessionLocal() as session:
-        row = session.scalar(
-            select(Users.user_id).where(Users.username == normalized).limit(1)
+        return session.scalar(
+            select(Users.user_id).where(Users.username == normalized)
         )
-        return row

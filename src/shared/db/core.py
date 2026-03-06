@@ -74,8 +74,7 @@ class Tasks(Base):
     __tablename__ = "tasks"
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    celery_id: Mapped[str | None] = mapped_column(String(255), index=True, nullable=True)
-    task_name: Mapped[str] = mapped_column(String(128))
+    task_name: Mapped[str] = mapped_column(String(128), nullable=True)
     version: Mapped[str] = mapped_column(String(32), default="v1")
     status: Mapped[str] = mapped_column(String(32))
     progress: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

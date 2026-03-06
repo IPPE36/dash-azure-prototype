@@ -16,7 +16,7 @@ celery_app = Celery(
     "celery_app",
     broker=_BROKER_URL,
     backend=_RESULT_BACKEND,
-    include=["shared.tasks"],
+    include=["shared.celery_tasks"],
 )
 
 celery_app.conf.update(

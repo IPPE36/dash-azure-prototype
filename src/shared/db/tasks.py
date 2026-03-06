@@ -1,15 +1,34 @@
 # src/shared/db/tasks.py
 
 import os
-from typing import Any
+from typing import Any, Iterable
 
-from sqlalchemy import and_, select, update, func
+from sqlalchemy import and_, select, func
 
 from .core import Payload, SessionLocal, Tasks
 
 
 ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
 _VERSION = os.getenv("APP_VERSION", "1.0")
+_TASK_COLUMN_MAP = {
+    "task_id": Tasks.task_id,
+    "user_id": Tasks.user_id,
+    "task_name": Tasks.task_name,
+    "version": Tasks.version,
+    "status": Tasks.status,
+    "progress": Tasks.progress,
+    "input_payload": Tasks.input_payload,
+    "output_payload": Tasks.output_payload,
+    "error_payload": Tasks.error_payload,
+}
+_DEFAULT_COLUMNS = (
+    "task_id",
+    "user_id",
+    "task_name",
+    "version",
+    "status",
+    "progress",
+)
 
 
 def add_task(user_id: int, task_name: str, input_payload: Payload) -> int | None:
@@ -68,7 +87,6 @@ def get_task(task_id: int) -> dict[str, Any] | None:
         return {
             "task_id": row.task_id,
             "user_id": row.user_id,
-            "celery_id": row.celery_id,
             "task_name": row.task_name,
             "version": row.version,
             "status": row.status,
@@ -123,14 +141,16 @@ def get_queue_position(task_id: int) -> int | None:
     if SessionLocal is None:
         return None
     with SessionLocal() as session:
-        row = session.scalar(select(Tasks.task_id).where(Tasks.task_id == task_id).limit(1))
-        if row is None:
-            return None
-        stmt = select(func.count()).select_from(Tasks).where(
-            and_(
-                Tasks.status.in_(ACTIVE_TASK_STATUSES),
-                Tasks.task_id <= task_id,
-            )
+        task_exists = (
+            select(1)
+            .select_from(Tasks)
+            .where(Tasks.task_id == task_id)
+            .exists()
+        )
+        stmt = select(func.count()).where(
+            Tasks.status.in_(ACTIVE_TASK_STATUSES),
+            Tasks.task_id <= task_id,
+            task_exists,
         )
         return session.scalar(stmt)
     
@@ -141,56 +161,36 @@ def get_user_task_rows(
     include_payloads: bool = True,
     newest_first: bool = True,
     limit: int | None = None,
+    status: Iterable[str] | None = None,
+    columns: Iterable[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """
-    Returns user tasks as list[dict], suitable for pd.DataFrame(rows).
-    - include_payloads: include input/output/error payload dicts (can be large)
-    - newest_first: order by task_id desc (default) else asc
-    - limit: optionally cap number of rows
-    """
     if SessionLocal is None:
         return []
+
+    if columns is None:
+        selected = list(_DEFAULT_COLUMNS)
+        if include_payloads:
+            selected.extend(["input_payload", "output_payload", "error_payload"])
+    else:
+        selected = list(dict.fromkeys(columns))  # preserve order, remove duplicates
+
+    invalid = set(selected) - set(_TASK_COLUMN_MAP)
+    if invalid:
+        raise ValueError(f"Invalid column(s): {sorted(invalid)}")
+
+    selected_cols = [_TASK_COLUMN_MAP[c].label(c) for c in selected]
+
     with SessionLocal() as session:
-        stmt = select(Tasks).where(Tasks.user_id == user_id)
-        if newest_first:
-            stmt = stmt.order_by(Tasks.task_id.desc())
-        else:
-            stmt = stmt.order_by(Tasks.task_id.asc())
+        stmt = select(*selected_cols).where(Tasks.user_id == user_id)
+
+        if status:
+            status_values = list(status)
+            stmt = stmt.where(Tasks.status.in_(status_values))
+
+        stmt = stmt.order_by(Tasks.task_id.desc() if newest_first else Tasks.task_id.asc())
+
         if limit is not None:
             stmt = stmt.limit(limit)
-        rows = session.scalars(stmt).all()
 
-        out: list[dict[str, Any]] = []
-        for row in rows:
-            item: dict[str, Any] = {
-                "task_id": row.task_id,
-                "user_id": row.user_id,
-                "celery_id": row.celery_id,
-                "task_name": row.task_name,
-                "version": row.version,
-                "status": row.status,
-                "progress": row.progress,
-            }
-            if include_payloads:
-                item.update(
-                    {
-                        "input_payload": row.input_payload,
-                        "output_payload": row.output_payload,
-                        "error_payload": row.error_payload,
-                    }
-                )
-            out.append(item)
-        return out
-    
-
-def set_celery_id(task_id: int, celery_id: str) -> None:
-    if SessionLocal is None:
-        return
-
-    with SessionLocal() as session:
-        session.execute(
-            update(Tasks)
-            .where(Tasks.task_id == task_id)
-            .values(celery_id=celery_id)
-        )
-        session.commit()
+        rows = session.execute(stmt).mappings().all()
+        return [dict(row) for row in rows]

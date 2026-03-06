@@ -4,19 +4,24 @@ import os
 import uuid
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, dcc, Input, State, Output, Trigger, no_update, callback, register_page
+from dash_extensions.enrich import html, dcc, Input, State, Output, Trigger, no_update, callback, register_page, ALL, ctx
 from dash.exceptions import PreventUpdate
 
 from shared.db.users import get_user_id
-from shared.db.tasks import add_task, get_queue_position, get_user_active_task_count, get_queue_length, get_next_user_task_id, delete_task, get_task, set_celery_id
-from shared.tasks import long_task
+from shared.db.tasks import add_task, get_queue_position, get_user_active_task_count, get_queue_length, get_user_task_rows, get_next_user_task_id, delete_task, get_task
+from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts.sidebar import build_sidebar_layout
 
 
-_MAX_USER_TASKS = 3
-_INTERVAL_FAST = os.getenv("JOB_UPDATE_INTERVAL_FAST", 1000)
-_INTERVAL_SLOW = os.getenv("JOB_UPDATE_INTERVAL_SLOW", 5000)
+_MAX_USER_TASKS = os.getenv("MAX_USER_TASKS", 3)
+_INTERVAL = os.getenv("JOB_INTERVAL", 1000)
+STATUS_COLOR = {
+    "RUNNING": "primary",
+    "PENDING": "secondary",
+    "ABORTED": "danger",
+    "COMPLETED": "success",
+}
 
 
 register_page(__name__, path="/jobs")
@@ -26,32 +31,21 @@ job_card = dbc.Card([
     dcc.ConfirmDialog(id="cnf_job", message=""),
     dcc.Store(id="task_id_current", data=None),
     dcc.Store(id="task_id_finished", data=None),
-    dcc.Interval(id="poll", interval=1000, disabled=False, n_intervals=0, max_intervals=200),
+    dcc.Interval(id="poll", interval=_INTERVAL, disabled=False, n_intervals=0, max_intervals=200),
     dbc.CardHeader([
         html.H5("Active Jobs", className="mb-2"),
         html.Div(
-            [
-                dbc.InputGroup(
-                    [
-                        dbc.Input(id="inp_submit_job", type="text", placeholder="Job Name"),
-                        dbc.Button("Submit", id="btn_submit_job", color="primary"),
-                    ],
-                    className="flex-grow-1 me-2"
-                ),
-                dbc.Button("Cancel", disabled=True, id="btn_cancel_job", color="danger"),
-            ],
-            className="d-flex align-items-center"
+            dbc.InputGroup(
+                [
+                    dbc.Input(id="inp_submit_job", type="text", maxLength=60, placeholder="Job Name"),
+                    dbc.Button("Submit", id="btn_submit_job", size="sm", color="primary"),
+                ],
+                className="flex-grow-1 me-2"
+            ),
         )
     ]),
-    dbc.Collapse(
-        dbc.CardBody(
-            "HI"
-        ),
-        id="crd_body_clps_job",
-        is_open=False,
-    ),
+    html.Div(id="crd_body_job"),
     dbc.CardFooter([
-        html.Span(id="status", className="mb-2"),
         html.Div(
             [
                 html.Span("Progress:", className="me-3"),
@@ -62,12 +56,23 @@ job_card = dbc.Card([
                     label="0%",
                     color="secondary",
                     className="flex-grow-1",
+                    animated=True,
                 ),
             ],
             className="d-flex align-items-center",
         ),
     ]),
 ], style={"width": "50rem"})
+
+# dbc.Collapse(
+#     dbc.CardBody(
+#         "HI"
+#     ),
+#     id="crd_body_clps_job",
+#     is_open=False,
+# ),
+# dbc.Button("Cancel", disabled=True, id="btn_cancel_job", color="danger"),
+#     Output("crd_body_clps_job", "is_open"),
 
 
 layout = build_sidebar_layout(
@@ -86,7 +91,8 @@ layout = build_sidebar_layout(
     Output("poll", "disabled"),
     Output("task_id_current", "data"),
     Input("btn_submit_job", "n_clicks"),
-    State("inp_submit_job", "value")
+    Trigger("inp_submit_job", "n_submit"),
+    State("inp_submit_job", "value"),
 )
 def start_job(n_clicks, task_name):
 
@@ -110,8 +116,6 @@ def start_job(n_clicks, task_name):
         input_payload={"x": payload},
     )
 
-    set_celery_id(task_id, celery_id)
-
     # schedule task with celery task id (string!)
     long_task.apply_async(
         args=[payload],
@@ -123,15 +127,37 @@ def start_job(n_clicks, task_name):
     return False, no_update, 0, False, task_id
 
 
+def generate_task_rows(tasks: list[tuple]) -> list:
+    children = []
+    for t in tasks:
+        color = STATUS_COLOR.get(t["status"], "secondary")
+        row = dbc.CardBody(
+            html.Div(
+                [
+                    dbc.Badge(t["status"], color=color, className="me-2"),
+                    html.Span(t["task_name"], className="flex-grow-1 fw-bold"),
+                    dbc.Button(
+                        "Cancel",
+                        id={"type": "btn_cancel_job", "index": t["task_id"]},
+                        size="sm",
+                        color="danger",
+                        className="btn_cancel_job ms-3",
+                    ),
+                ],
+                className="d-flex justify-content-between align-items-center",
+            ),
+            className="py-2 border-bottom",
+        )
+        children.append(row)
+    return children
+
+
 @callback(
-    Output("status", "children"),
+    Output("crd_body_job", "children"),
     Output("progress", "value"),
     Output("progress", "label"),
-    Output("poll", "interval"),
     Output("poll", "disabled"),
     Output("task_id_finished", "data"),
-    Output("btn_cancel_job", "disabled"),
-    Output("crd_body_clps_job", "is_open"),
     Input("poll", "n_intervals"),
     State("task_id_current", "data"),
 )
@@ -141,27 +167,36 @@ def poll_job(n_intervals, task_id):
         raise PreventUpdate
     
     if task_id is None:
-        return "", 0, "", _INTERVAL_FAST, True, no_update, True, False
+        return [], 0, "", True, no_update
+    
+    user_name = get_user_name()
+    user_id = get_user_id(user_name)
 
     task = get_task(task_id)
-    if task is None:
-        return "", 0, "", _INTERVAL_FAST, True, no_update, True, False
-    
     status = task["status"]
-    
-    # n = get_queue_length()
-    info = f"{status} {task['task_name']}"
 
-    if status == "PENDING":
-        pos = get_queue_position(task["task_id"])
-        interval = _INTERVAL_SLOW if pos > 1 else _INTERVAL_FAST
-        return info, no_update, no_update, interval, False, no_update, True, True
-    
+    user_tasks = get_user_task_rows(
+        newest_first=True,
+        user_id=user_id,
+        include_payloads=False,
+        columns={"status", "task_name", "progress", "task_id"},
+        status={"PENDING", "RUNNING"},
+        limit=_MAX_USER_TASKS
+    )
+
     if status in {"COMPLETED", "ABORTED"}:
-        return "", 100, "100%", _INTERVAL_FAST, False, task_id, True, True
+        user_tasks.append({"task_name": task["task_name"], "status": status, "task_id": task_id})
+
+    children = generate_task_rows(user_tasks)
+
+    if status in {"COMPLETED", "ABORTED"}:
+        return children, 100, "100%", False, task_id
+    
+    if status == "PENDING":
+        return children, no_update, no_update, False, no_update
     
     progress = int(task.get("progress") or 0)
-    return info, progress, f"{progress}%", _INTERVAL_FAST, False, no_update, False, True
+    return children, progress, f"{progress}%", False, no_update
 
 
 @callback(
@@ -178,22 +213,38 @@ def next_job():
 
 @callback(
     Output("poll", "disabled"),
-    Output("status", "children"),
     Output("poll", "n_intervals"),
     Output("task_id_current", "data"),
     Output("progress", "value"),
     Output("progress", "label"),
-    Output("crd_body_clps_job", "is_open"),
-    Trigger("btn_cancel_job", "n_clicks"),
+    Input({"type": "btn_cancel_job", "index": ALL}, "n_clicks"),
     State("task_id_current", "data"),
 )
-def delete_current_task(task_id):
-    if not task_id:
-        return  True, no_update, no_update, no_update, no_update, no_update, no_update
-    delete_task(task_id)    
+def cancel_task(n_clicks, current_task_id):
+
+    if not ctx.triggered:
+        raise PreventUpdate
+
+    if ctx.triggered[0]["value"] is None:
+        raise PreventUpdate
+
+    task_id_to_cancel = ctx.triggered_id["index"]
+
     user_name = get_user_name()
     user_id = get_user_id(user_name)
-    task_id = get_next_user_task_id(user_id)
-    if not task_id:
-        return True, "", 0, no_update, 0, "", False
-    return False, "", 0, task_id, 0, "", True
+    if user_id is None:
+        raise PreventUpdate
+
+    task = get_task(task_id_to_cancel)
+    if not task or task.get("user_id") != user_id:
+        raise PreventUpdate
+
+    delete_task(task_id_to_cancel)
+
+    if task_id_to_cancel == current_task_id:
+        next_task_id = get_next_user_task_id(user_id)
+        if next_task_id is None:
+            return True, 0, None, 0, ""
+        return False, 0, next_task_id, 0, ""
+
+    return False, 0, no_update, no_update, no_update

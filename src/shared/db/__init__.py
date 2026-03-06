@@ -11,7 +11,6 @@ from .tasks import (
     get_queue_position, 
     get_user_task_rows, 
     get_user_active_task_count,
-    set_celery_id,
 )
 from .users import add_user, auth_dev_user
 
@@ -26,7 +25,6 @@ __all__ = [
     "get_queue_position",
     "get_user_task_rows",
     "get_user_active_task_count",
-    "set_celery_id",
     "add_user",
     "auth_dev_user",
 ]
