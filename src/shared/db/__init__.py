@@ -10,7 +10,7 @@ from .tasks import (
     get_queue_length, 
     get_queue_position, 
     get_user_task_rows, 
-    get_user_active_task_count,
+    get_user_task_count,
 )
 from .users import add_user, auth_dev_user
 
@@ -24,7 +24,7 @@ __all__ = [
     "get_queue_length",
     "get_queue_position",
     "get_user_task_rows",
-    "get_user_active_task_count",
+    "get_user_task_count",
     "add_user",
     "auth_dev_user",
 ]

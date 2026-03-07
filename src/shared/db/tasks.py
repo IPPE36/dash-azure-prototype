@@ -3,7 +3,7 @@
 import os
 from typing import Any, Iterable
 
-from sqlalchemy import and_, select, func
+from sqlalchemy import and_, select, delete, update, func
 
 from .core import Payload, SessionLocal, Tasks
 
@@ -51,61 +51,59 @@ def add_task(user_id: int, task_name: str, input_payload: Payload) -> int | None
 def update_task(task_id: int, **kwargs: Any) -> bool:
     if SessionLocal is None or not kwargs:
         return False
+
+    for key in kwargs:
+        if key.endswith("_id"):
+            raise ValueError(f"Task field is protected: {key}")
+        if key not in _TASK_COLUMN_MAP:
+            raise ValueError(f"Unknown task field: {key}")
+
     with SessionLocal() as session:
-        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id).limit(1))
-        if row is None:
-            return False
-        for key, value in kwargs.items():
-            if key.endswith("_id"):
-                raise ValueError(f"Task field is protected: {key}")
-            if not hasattr(row, key):
-                raise ValueError(f"Unknown task field: {key}")
-            setattr(row, key, value)
+        stmt = (
+            update(Tasks)
+            .where(Tasks.task_id == task_id)
+            .values(**kwargs)
+        )
+        result = session.execute(stmt)
         session.commit()
-        return True
-    
+        return (result.rowcount or 0) > 0
+
 
 def delete_task(task_id: int) -> bool:
     if SessionLocal is None:
         return False
+
     with SessionLocal() as session:
-        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id).limit(1))
-        if row is None:
-            return False
-        session.delete(row)
+        stmt = delete(Tasks).where(Tasks.task_id == task_id)
+        result = session.execute(stmt)
         session.commit()
-        return True
+        return (result.rowcount or 0) > 0
 
 
-def get_task(task_id: int) -> dict[str, Any] | None:
+def get_task(task_id: int, *, include_payloads: bool = True) -> dict[str, Any] | None:
     if SessionLocal is None:
         return None
+
+    selected = list(_DEFAULT_COLUMNS)
+    if include_payloads:
+        selected.extend(["input_payload", "output_payload", "error_payload"])
+
+    cols = [_TASK_COLUMN_MAP[c].label(c) for c in selected]
+
     with SessionLocal() as session:
-        row = session.scalar(select(Tasks).where(Tasks.task_id == task_id))
-        if row is None:
-            return None
-        return {
-            "task_id": row.task_id,
-            "user_id": row.user_id,
-            "task_name": row.task_name,
-            "version": row.version,
-            "status": row.status,
-            "progress": row.progress,
-            "input_payload": row.input_payload,
-            "output_payload": row.output_payload,
-            "error_payload": row.error_payload,
-        }
+        stmt = select(*cols).where(Tasks.task_id == task_id).limit(1)
+        row = session.execute(stmt).mappings().first()
+        return dict(row) if row else None
     
-def get_user_active_task_count(user_id: int) -> int:
+    
+def get_user_task_count(user_id: int, statuses: set[str] = ACTIVE_TASK_STATUSES) -> int:
     if SessionLocal is None:
         return 0
     with SessionLocal() as session:
-        stmt = select(func.count()).select_from(Tasks).where(
-            and_(
-                Tasks.user_id == user_id,
-                Tasks.status.in_(ACTIVE_TASK_STATUSES),
-            )
-        )
+        conditions = [Tasks.user_id == user_id]
+        if statuses is not None:
+            conditions.append(Tasks.status.in_(statuses))
+        stmt = select(func.count()).select_from(Tasks).where(and_(*conditions))
         return session.scalar(stmt) or 0
     
 
@@ -141,16 +139,13 @@ def get_queue_position(task_id: int) -> int | None:
     if SessionLocal is None:
         return None
     with SessionLocal() as session:
-        task_exists = (
-            select(1)
+        stmt = (
+            select(func.count())
             .select_from(Tasks)
-            .where(Tasks.task_id == task_id)
-            .exists()
-        )
-        stmt = select(func.count()).where(
-            Tasks.status.in_(ACTIVE_TASK_STATUSES),
-            Tasks.task_id <= task_id,
-            task_exists,
+            .where(
+                Tasks.status.in_(ACTIVE_TASK_STATUSES),
+                Tasks.task_id <= task_id,
+            )
         )
         return session.scalar(stmt)
     

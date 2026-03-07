@@ -8,7 +8,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, inspect, select, text, func
+from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, inspect, select, delete, text, func
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase, Mapped, sessionmaker, mapped_column
 from sqlalchemy.schema import CreateColumn
@@ -74,7 +74,7 @@ class Tasks(Base):
     __tablename__ = "tasks"
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
-    task_name: Mapped[str] = mapped_column(String(128), nullable=True)
+    task_name: Mapped[str] = mapped_column(String(128), nullable=True, default="New Task")
     version: Mapped[str] = mapped_column(String(32), default="v1")
     status: Mapped[str] = mapped_column(String(32))
     progress: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -209,6 +209,13 @@ def init_db() -> None:
                         )
                 Base.metadata.create_all(bind=conn)
                 _sync_columns(conn)
+
+                # remove stale tasks upon startup
+                result = conn.execute(
+                    delete(Tasks).where(Tasks.status.in_(["PENDING", "RUNNING"]))
+                )
+                logger.info("removed stale tasks", extra={"deleted": result.rowcount})
+
                 conn.commit()
             finally:
                 conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
