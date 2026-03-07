@@ -4,7 +4,7 @@ import os
 import uuid
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, dcc, Input, State, Output, Trigger, no_update, callback, register_page, ALL, ctx
+from dash_extensions.enrich import html, Input, State, Output, Trigger, no_update, callback, register_page, ALL, ctx
 from dash.exceptions import PreventUpdate
 
 from shared.db.users import get_user_id
@@ -12,59 +12,22 @@ from shared.db.tasks import add_task, get_queue_position, get_user_task_count, g
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts.sidebar import build_sidebar_layout
+from web.layouts.page_jobs_active_jobs_card import build_active_job_card
 
 
 _MAX_USER_TASKS_ACTIVE = os.getenv("MAX_USER_TASKS_ACTIVE", 3)
 _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 _INTERVAL = os.getenv("JOB_INTERVAL", 1000)
 STATUS_COLOR = {
-    "RUNNING": "primary",
+    "RUNNING": "dark",
     "PENDING": "secondary",
     "ABORTED": "danger",
     "COMPLETED": "success",
 }
 
-
 register_page(__name__, path="/jobs")
 
-
-job_card = dbc.Card([
-    dcc.ConfirmDialog(id="cnf_job", message=""),
-    dcc.Store(id="task_id_current", data=None),
-    dcc.Store(id="task_id_finished", data=None),
-    dcc.Interval(id="poll", interval=_INTERVAL, disabled=False, n_intervals=0, max_intervals=200),
-    dbc.CardHeader([
-        html.H5("Active Jobs", className="mb-2"),
-        html.Div(
-            dbc.InputGroup(
-                [
-                    dbc.Input(id="inp_submit_job", type="text", maxLength=60, placeholder="Job Name"),
-                    dbc.Button("Submit", id="btn_submit_job", size="sm", color="primary"),
-                ],
-                className="flex-grow-1 me-2"
-            ),
-        )
-    ]),
-    html.Div(id="crd_body_job"),
-    dbc.CardFooter([
-        html.Div(
-            [
-                html.Span("Progress:", className="me-3"),
-                dbc.Progress(
-                    id="progress",
-                    value=0,
-                    max=100,
-                    label="0%",
-                    color="secondary",
-                    className="flex-grow-1",
-                    animated=True,
-                ),
-            ],
-            className="d-flex align-items-center",
-        ),
-    ]),
-], style={"width": "50rem"})
-
+active_job_card = build_active_job_card(_INTERVAL)
 
 layout = build_sidebar_layout(
     page_title="Jobs",
@@ -72,7 +35,7 @@ layout = build_sidebar_layout(
         ("Home", "/"),
         ("Jobs", "/jobs"),
     ],
-    content=job_card
+    content=active_job_card
 )
 
 
@@ -133,10 +96,11 @@ def generate_task_rows_active(tasks: list[dict], queue_len: int) -> list:
             html.Div(
                 [
                     dbc.Badge(t["status"], color=color, className="me-1"),
-                    dbc.Badge(f"Pos={t['pos']}/{queue_len}", color=color, className="me-1") if t["status"] == "PENDING" else "",
+                    dbc.Badge(f"{t['pos']}/{queue_len}", color=color, className="me-1") if t["status"] == "PENDING" else "",
+                    dbc.Badge(f"{t['progress']}%", color=color, className="me-1") if t["status"] == "RUNNING" else "",
                     html.Span(t["task_name"], className="flex-grow-1 fw-bold"),
                     dbc.Button(
-                        "Cancel",
+                        "",  # shows icon with ::before
                         id={"type": "btn_cancel_job", "index": t["task_id"]},
                         size="sm",
                         color="danger",
@@ -154,7 +118,6 @@ def generate_task_rows_active(tasks: list[dict], queue_len: int) -> list:
 @callback(
     Output("crd_body_job", "children"),
     Output("progress", "value"),
-    Output("progress", "label"),
     Output("poll", "disabled"),
     Output("task_id_finished", "data"),
     Trigger("poll", "n_intervals"),
@@ -163,7 +126,7 @@ def generate_task_rows_active(tasks: list[dict], queue_len: int) -> list:
 def poll_job(task_id):
     
     if task_id is None:
-        return [], 0, "", True, no_update
+        return [], 0, True, no_update
     
     user_name = get_user_name()
     user_id = get_user_id(user_name)
@@ -181,7 +144,12 @@ def poll_job(task_id):
     )
 
     if status in {"COMPLETED", "ABORTED"}:
-        user_tasks.append({"task_name": task["task_name"], "status": status, "task_id": task_id})
+        user_tasks.append({
+            "task_name": task["task_name"],
+            "status": status,
+            "task_id": task_id,
+            "progress": task["progress"],
+        })
 
     for i, t in enumerate(user_tasks):
         user_tasks[i]["pos"] = get_queue_position(t["task_id"])
@@ -190,13 +158,13 @@ def poll_job(task_id):
     children = generate_task_rows_active(user_tasks, n)
 
     if status in {"COMPLETED", "ABORTED"}:
-        return children, 100, "100%", False, task_id
+        return children, 100, False, task_id
     
     if status == "PENDING":
-        return children, no_update, no_update, False, no_update
+        return children, no_update, False, no_update
     
     progress = int(task.get("progress") or 0)
-    return children, progress, f"{progress}%", False, no_update
+    return children, progress, False, no_update
 
 
 @callback(
@@ -216,7 +184,6 @@ def next_job():
     Output("poll", "n_intervals"),
     Output("task_id_current", "data"),
     Output("progress", "value"),
-    Output("progress", "label"),
     Trigger({"type": "btn_cancel_job", "index": ALL}, "n_clicks"),
     State("task_id_current", "data"),
 )
@@ -244,7 +211,7 @@ def cancel_task(current_task_id):
     if cancel_id == current_task_id:
         next_task_id = get_next_user_task_id(user_id)
         if next_task_id is None:
-            return True, 0, None, 0, ""
-        return False, 0, next_task_id, 0, ""
+            return True, 0, None, 0
+        return False, 0, next_task_id, 0
 
-    return False, 0, no_update, no_update, no_update
+    return False, 0, no_update, no_update
