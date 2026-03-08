@@ -2,26 +2,26 @@
 # src/web/layout/page_jobs.py
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, dcc
+from dash_extensions.enrich import html, dcc, dash_table
 
-from web.theme import JOBS_STATUS_COLOR
+from web.theme import TRANSPARENT
 
 
-def build_active_job_card(interval: int, width="30rem"):
+COLUMNS = [
+    {"name": "ID", "id": "task_id", "editable": False},
+    {"name": "STATUS", "id": "status", "editable": False},
+    {"name": "LABEL", "id": "task_name", "editable": True},
+]
+
+
+def build_active_job_card(interval: int, width="50rem"):
     job_card = dbc.Card([
-        html.Tr(
-            [
-                html.Td("1"),
-                html.Td("Train Model"),
-                html.Td("RUNNING"),
-            ],
-            id={"type": "task-row", "index": 1},
-            n_clicks=0,
-            style={"cursor": "pointer"}
-        ),
-        dcc.ConfirmDialog(id="jobs-confirm", message=""),
+        dcc.ConfirmDialog(id="jobs-submit-msg", message=""),
+        dcc.ConfirmDialog(id="jobs-delete-msg", message=""),
+        dcc.ConfirmDialog(id="jobs-delete-confirm", message=""),
         dcc.Store(id="jobs-current-id", data=None),
         dcc.Store(id="jobs-finished-id", data=None),
+        dcc.Store(id="jobs-todelete-id", data=None),
         dcc.Interval(id="jobs-poll", interval=interval, disabled=False, n_intervals=0, max_intervals=300),
         dbc.CardHeader([
             html.H5("Active Jobs", className="mb-2"),
@@ -35,14 +35,12 @@ def build_active_job_card(interval: int, width="30rem"):
                 ),
             )
         ]),
-        html.Div(id="jobs-active-container"),
         dbc.Collapse(
-            dbc.CardFooter(
+            dbc.CardHeader(
                 [
                     html.Div(
                         [
                             html.Span("Progress:", className="me-3"),
-
                             dbc.Progress(
                                 id="jobs-progress",
                                 value=0,
@@ -50,7 +48,6 @@ def build_active_job_card(interval: int, width="30rem"):
                                 color="primary",
                                 className="flex-grow-1 me-3",
                             ),
-
                             html.Div(
                                 "0%",
                                 id="jobs-progress-text",
@@ -63,52 +60,34 @@ def build_active_job_card(interval: int, width="30rem"):
             ),
             id="jobs-active-container-collapse",
             is_open=False,
-        )
+        ),
+        html.Div(
+            dash_table.DataTable(
+                id="jobs-table",
+                columns=COLUMNS,
+                row_deletable=False,
+                editable=False,
+                cell_selectable=False,
+                row_selectable="single",
+                style_as_list_view=True,
+                page_size=10,
+                style_header={"display": "none"},
+                style_cell={"backgroundColor": TRANSPARENT, "textAlign": "left"},
+                hidden_columns=["task_id"],
+                css=[
+                    {"selector": ".show-hide", "rule": "display: none"},  # hides toggle columns button
+                    {"selector": "tr:first-child", "rule": "display: none"},  # hides header row
+                ],
+            ), 
+        ),
+        dbc.CardFooter(
+            html.Div(
+                className="d-flex gap-2",
+                children=[
+                    dbc.Button("Load Results", id="jobs-result-btn", size="sm", color="secondary", disabled=True),
+                    dbc.Button("Delete", id="jobs-delete-btn", size="sm", color="secondary", disabled=True),
+                ],
+            )
+        ),
     ], style={"width": width})
     return job_card
-
-
-def build_active_task_rows(tasks: list[dict]) -> list:
-    children = []
-
-    for t in tasks:
-        color = JOBS_STATUS_COLOR.get(t["status"], "secondary")
-        info_pos = f" {t['pos']-1}" if t["status"] == "PENDING" else ""
-        info = f"{t['status']}{info_pos}"
-
-        row = dbc.CardBody(
-            html.Div(
-                [
-                    dbc.Badge(
-                        info,
-                        color=color,
-                        className="me-3 text-start",
-                        style={"display": "inline-block"},
-                        pill=True,
-                    ),
-                    html.Span(
-                        t["task_name"],
-                        className=f"flex-grow-1 fw-semibold me-3 text-{color}",
-                        style={
-                            "whiteSpace": "nowrap",
-                            "overflow": "hidden",
-                            "textOverflow": "ellipsis",
-                            "minWidth": "0",
-                        },
-                    ),
-                    dbc.Button(
-                        id={"type": "jobs-cancel-btn", "index": t["task_id"]},
-                        size="sm",
-                        color="danger",
-                        className="jobs-cancel-btn flex-shrink-0",
-                    ),
-                ],
-                className="d-flex align-items-center w-100",
-                style={"minWidth": "0"},
-            ),
-            className="py-2 border-bottom",
-        )
-
-        children.append(row)
-
-    return children
