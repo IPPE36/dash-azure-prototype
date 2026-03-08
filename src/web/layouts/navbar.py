@@ -13,8 +13,8 @@ from web.theme import (
 _APP_NAME = os.getenv("APP_NAME", "Suite")
 _VERSION = os.getenv("APP_VERSION", "1.0")
 
-def build_top_banner():
-    banner = html.Div(
+def build_navbar():
+    navbar = html.Div(
         dbc.Container(
             dbc.Row(
                 [   
@@ -81,4 +81,4 @@ def build_top_banner():
         ),
         className="bg-primary border-bottom",
     )
-    return banner
+    return navbar

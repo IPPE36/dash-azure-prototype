@@ -10,7 +10,7 @@ from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, Multi
 from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
-from .layouts.banner import build_top_banner
+from .layouts.navbar import build_navbar
 from .callbacks.banner import register_callbacks_banner
 
 
@@ -68,7 +68,7 @@ server.before_request(request_guard)
 
 app.layout = html.Div([
     dcc.Location(id="app-location"),
-    build_top_banner(),
+    build_navbar(),
     page_container,
 ])
 

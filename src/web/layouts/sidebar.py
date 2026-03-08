@@ -13,7 +13,6 @@ from web.theme import (
 
 def build_sidebar_layout(
     *,
-    page_title: str,
     content,
     content_sidebar = [],
     nav_items: Iterable[tuple[str, str]],
@@ -35,10 +34,7 @@ def build_sidebar_layout(
         },
     )
     main = dbc.Col(
-        [
-            html.H3(page_title, className="mb-3"),
-            content,
-        ],
+        content,
         xs=12,
         md=8,
         lg=9,
