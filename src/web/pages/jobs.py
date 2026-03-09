@@ -18,26 +18,41 @@ from web.theme import TABLE_TAG_UNICODE
 _MAX_USER_TASKS_ACTIVE = os.getenv("MAX_USER_TASKS_ACTIVE", 3)
 _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 
-register_page(__name__, path="/jobs")
-
-active_job_card = build_active_job_card()
+register_page(__name__, path="/jobs", title="Jobs")
 
 layout = build_sidebar_layout(
     nav_items=[
         ("Home", "/"),
         ("Jobs", "/jobs"),
     ],
-    content=active_job_card
+    content=build_active_job_card()
 )
 
 
 @callback(
     Output("mobile-sidebar", "is_open"),
-    Input("open-sidebar-btn", "n_clicks"),
+    Trigger("open-sidebar-btn", "n_clicks"),
     State("mobile-sidebar", "is_open"),
 )
-def cb_jobs_toggle_mobile_sidebar(n_clicks, is_open):
+def cb_jobs_toggle_mobile_sidebar(is_open):
     return not is_open
+
+
+clientside_callback(
+    """
+    function(widthBreakpoint) {
+        if (widthBreakpoint === "mobile") {
+            return ["task_id", "status", "created_at"];
+        } else if (widthBreakpoint === "tablet") {
+            return ["task_id", "status"];
+        } else {
+            return ["task_id"];
+        }
+    }
+    """,
+    Output("jobs-table", "hidden_columns"),
+    Input("breakpoints", "widthBreakpoint"),
+)
 
 
 clientside_callback(
@@ -55,16 +70,6 @@ clientside_callback(
     Input("jobs-poll", "disabled"),
 )
 
-
-# @callback(
-#     Output("jobs-result-btn", "disabled"),
-#     Output("jobs-delete-btn", "disabled"),
-#     Input("jobs-table", "selected_rows"),
-# )
-# def cb_jobs_enable_button(selected_rows):
-#     if selected_rows:
-#         return False, False
-#     return True, True
 clientside_callback(
     """
     function(selected_rows) {
@@ -268,18 +273,3 @@ def cb_jobs_delete_after_confirm(task_data, current_task_id):
     return True, msg, no_update, no_update, no_update, no_update, 0
 
 
-clientside_callback(
-    """
-    function(widthBreakpoint) {
-        if (widthBreakpoint === "mobile") {
-            return ["task_id", "status", "created_at"];
-        } else if (widthBreakpoint === "tablet") {
-            return ["task_id", "status"];
-        } else {
-            return ["task_id"];
-        }
-    }
-    """,
-    Output("jobs-table", "hidden_columns"),
-    Input("breakpoints", "widthBreakpoint"),
-)

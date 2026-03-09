@@ -3,7 +3,7 @@
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import register_page, html
 
-register_page(__name__, path="/")
+register_page(__name__, path="/", title="Home")
 
 layout = dbc.Container(
     [

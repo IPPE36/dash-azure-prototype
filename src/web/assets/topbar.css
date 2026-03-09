@@ -1,22 +1,9 @@
-.topbar-nav-menu .dropdown-toggle::before {
-    content: "\f0c9";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
-}
 
-.topbar-user-menu .dropdown-toggle::before {
+#topbar-user-menu .dropdown-toggle::before {
     content: "\f007";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
     margin-right: 0.5rem;
-}
-
-.jobs-cancel-btn::before {
-    content: "\f1f8";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin: 0.5rem;
 }
 
 #jobs-submit-btn::before {

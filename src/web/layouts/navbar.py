@@ -1,4 +1,4 @@
-# src/web/layout/layout_banner.py
+# src/web/layout/navbar.py
 
 import os
 
@@ -16,31 +16,33 @@ _VERSION = os.getenv("APP_VERSION", "1.0")
 def build_navbar():
     navbar = dbc.Navbar(
         dbc.Container(
-            [
-                dbc.NavbarBrand(
-                    [
-                        html.I(className=ICON_PAGE_APP),
-                        html.Span(f"{_APP_NAME}-{_VERSION}", className="fw-semibold"),
-                    ],
-                    className="text-white d-flex align-items-center",
+            [   
+                html.Button(
+                    dbc.NavbarBrand(
+                        [
+                            html.I(className=ICON_PAGE_APP),
+                            html.Span(_APP_NAME, className="fw-semibold ms-2"),
+                        ],
+                        className="text-white d-flex align-items-center",
+                    ),
+                    id="open-nav-offcanvas",
+                    n_clicks=0,
+                    className="btn btn-link p-0 border-0 text-decoration-none",
+                    style={"cursor": "pointer"},
+                ),
+                html.Span("/", className="mx-1 text-white-50"),
+                html.Span(
+                    id="navbar-page-title",
+                    className="text-white ms-3 fw-semibold",
                 ),
                 dbc.Nav(
                     [
-                        dbc.DropdownMenu(
-                            id="topbar-nav-menu",
-                            label="Navigation",
-                            color="primary",
-                            size="md",
-                            className="topbar-nav-menu border border-white",
-                            align_end=True,
-                            children=[],
-                        ),
                         dbc.DropdownMenu(
                             id="topbar-user-menu",
                             label="Account",
                             color="primary",
                             size="md",
-                            className="topbar-user-menu border border-white",
+                            className="border border-white rounded-2",
                             align_end=True,
                             children=[
                                 html.Div(
@@ -75,3 +77,22 @@ def build_navbar():
         className="border-bottom",
     )
     return navbar
+
+
+def build_nav_offcanvas():
+    return dbc.Offcanvas(
+        [
+            dbc.Nav(
+                [
+                    dbc.NavLink("Home", href="/", active="exact"),
+                    dbc.NavLink("Jobs", href="/jobs", active="exact"),
+                ],
+                vertical=True,
+                pills=True,
+            ),
+        ],
+        id="nav-offcanvas",
+        title="Navigation",
+        is_open=False,
+        placement="start",
+    )

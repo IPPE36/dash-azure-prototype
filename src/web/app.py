@@ -5,13 +5,13 @@ import redis
 
 from flask_session import Session
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
+from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 from dash_breakpoints_new import WindowBreakpoints
 
 from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
-from .layouts.navbar import build_navbar
+from .layouts.navbar import build_navbar, build_nav_offcanvas
 from .callbacks.navbar import register_callbacks_navbar
 
 
@@ -73,7 +73,9 @@ app.layout = html.Div([
         widthBreakpointThresholdsPx=[768, 1200],
         widthBreakpointNames=["mobile", "tablet", "desktop"],
     ),
+    dcc.Location(id="app-location"),
     build_navbar(),
+    build_nav_offcanvas(),
     page_container,
 ])
 register_callbacks_navbar(app)

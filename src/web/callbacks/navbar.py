@@ -1,7 +1,7 @@
-# src/web/callbacks/background.py
+# src/web/callbacks/navbar.py
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, Input, Output, page_registry
+from dash_extensions.enrich import html, Input, Output, State, page_registry
 
 from web.auth import get_user_name
 from web.theme import ICON_PAGE_HOME, ICON_PAGE_APP
@@ -10,30 +10,31 @@ from web.theme import ICON_PAGE_HOME, ICON_PAGE_APP
 def register_callbacks_navbar(dash_app) -> None:
         
     @dash_app.callback(
-        Output("topbar-nav-menu", "children"),
         Output("topbar-user-menu", "label"),
-        Output("topbar-nav-menu", "label"),
         Input("app-location", "pathname"),
     )
-    def sync_navbar(pathname: str | None):
-        normalized_path = pathname or "/"
-        nav_items = []
-        for page in page_registry.values():
-            page_path = str(page.get("path") or "")
-            page_name = str(page.get("name") or page.get("title"))
-            icon = ICON_PAGE_HOME if page_name == "Home" else ICON_PAGE_APP
-            if page_path:
-                nav_items.append(
-                    dbc.DropdownMenuItem(
-                        [
-                            html.I(className=icon),
-                            html.Span(page_name),
-                        ],
-                        href=page_path,
-                        active=(page_path == normalized_path),
-                    )
-                )
-            if page.get("path") == normalized_path:
-                page_title = str(page.get("name") or page.get("title"))
+    def update_user_name(pathname: str | None):
         user_name = get_user_name() or "Account"
-        return nav_items, user_name, page_title
+        return user_name
+
+
+    @dash_app.callback(
+        Output("nav-offcanvas", "is_open"),
+        Input("open-nav-offcanvas", "n_clicks"),
+        State("nav-offcanvas", "is_open"),
+    )
+    def toggle_offcanvas(n, is_open):
+        if not n:
+            raise PreventUpdate
+        return not is_open
+
+
+    @dash_app.callback(
+        Output("navbar-page-title", "children"),
+        Input("app-location", "pathname"),
+    )
+    def update_page_title(pathname):
+        for page in page_registry.values():
+            if page["path"] == pathname:
+                return page.get("title", "")
+        return ""
