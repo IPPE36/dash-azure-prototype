@@ -11,10 +11,11 @@ COLUMNS = [
     {"name": "ID", "id": "task_id", "editable": False},
     {"name": "STATUS", "id": "status", "editable": False},
     {"name": "LABEL", "id": "task_name", "editable": True},
+    {"name": "DATE", "id": "created_at", "editable": False}
 ]
 
 
-def build_active_job_card(interval: int, width="100%"):
+def build_active_job_card():
     job_card = dbc.Card([
         dcc.ConfirmDialog(id="jobs-submit-msg", message=""),
         dcc.ConfirmDialog(id="jobs-delete-msg", message=""),
@@ -22,7 +23,7 @@ def build_active_job_card(interval: int, width="100%"):
         dcc.Store(id="jobs-current-id", data=None),
         dcc.Store(id="jobs-finished-id", data=None),
         dcc.Store(id="jobs-todelete-id", data=None),
-        dcc.Interval(id="jobs-poll", interval=interval, disabled=False, n_intervals=0, max_intervals=300),
+        dcc.Interval(id="jobs-poll", interval=1000, disabled=False),
         dbc.CardHeader(
             [
                 html.H5("My Optimizations", className="mb-2"),
@@ -90,7 +91,7 @@ def build_active_job_card(interval: int, width="100%"):
                 style_as_list_view=True,
                 page_size=10,
                 style_header={"display": "none"},
-                style_cell={"backgroundColor": TRANSPARENT, "textAlign": "left"},
+                style_cell={"backgroundColor": TRANSPARENT, "textAlign": "left", "fontFamily": "inherit"},
                 hidden_columns=["task_id"],
                 css=[
                     {"selector": ".show-hide", "rule": "display: none"},  # hides toggle columns button
@@ -108,5 +109,5 @@ def build_active_job_card(interval: int, width="100%"):
                 ],
             )
         ),
-    ], style={"width": width})
+    ], style={"width": "100%"})
     return job_card

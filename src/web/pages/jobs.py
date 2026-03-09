@@ -16,11 +16,10 @@ from web.layouts.page_jobs import build_active_job_card
 
 _MAX_USER_TASKS_ACTIVE = os.getenv("MAX_USER_TASKS_ACTIVE", 3)
 _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
-_INTERVAL = os.getenv("JOB_INTERVAL", 1000)  # update every second -> expensive?
 
 register_page(__name__, path="/jobs")
 
-active_job_card = build_active_job_card(_INTERVAL)
+active_job_card = build_active_job_card()
 
 layout = build_sidebar_layout(
     nav_items=[
@@ -29,6 +28,16 @@ layout = build_sidebar_layout(
     ],
     content=active_job_card
 )
+
+
+@callback(
+    Output("mobile-sidebar", "is_open"),
+    Input("open-sidebar-btn", "n_clicks"),
+    State("mobile-sidebar", "is_open"),
+    prevent_initial_call=True,
+)
+def cb_jobs_toggle_mobile_sidebar(n_clicks, is_open):
+    return not is_open
 
 
 clientside_callback(
@@ -52,7 +61,7 @@ clientside_callback(
 #     Output("jobs-delete-btn", "disabled"),
 #     Input("jobs-table", "selected_rows"),
 # )
-# def enable_button(selected_rows):
+# def cb_jobs_enable_button(selected_rows):
 #     if selected_rows:
 #         return False, False
 #     return True, True
@@ -74,7 +83,6 @@ clientside_callback(
 @callback(
     Output("jobs-submit-msg", "displayed"),
     Output("jobs-submit-msg", "message"),
-    Output("jobs-poll", "n_intervals"),
     Output("jobs-poll", "disabled"),
     Output("jobs-current-id", "data"),
     Output("jobs-submit-inp", "value"),
@@ -83,25 +91,25 @@ clientside_callback(
     Input("jobs-submit-inp", "n_submit"),
     State("jobs-submit-inp", "value"),
 )
-def start_job(n_clicks, n_submit, task_name):
+def cb_jobs_start_job(n_clicks, n_submit, task_name):
 
     user_name = get_user_name()
     user_id = get_user_id(user_name)
 
     if not n_clicks and not n_submit:
         task_id = get_next_user_task_id(user_id)
-        return no_update, no_update, no_update, False, task_id, no_update, no_update
+        return no_update, no_update, False, task_id, no_update, no_update
     
     if not task_name:
-        return True, "No task name provided! Please enter...", no_update, no_update, no_update, no_update, no_update
+        return True, "No task name provided! Please enter...", no_update, no_update, no_update, no_update
     
     n_active = get_user_task_count(user_id)
     if n_active >= _MAX_USER_TASKS_ACTIVE:
-        return True, f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete...", no_update, no_update, no_update, no_update, no_update
+        return True, f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete...", no_update, no_update, no_update, no_update
     
     n_total = get_user_task_count(user_id, statuses=None)
     if n_total >= _MAX_USER_TASKS_TOTAL:
-        return True, f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database...", no_update, no_update, no_update, no_update, no_update
+        return True, f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database...", no_update, no_update, no_update, no_update
     
     # schedule task with celery task id (string!)
     celery_id = str(uuid.uuid4())
@@ -118,31 +126,34 @@ def start_job(n_clicks, n_submit, task_name):
     )
 
     task_id = get_next_user_task_id(user_id)
-    return False, no_update, 0, False, task_id, "", []
+    return False, no_update, False, task_id, "", []
 
 
-@callback(
-    Output("jobs-table", "data"),
-    Trigger("app-location", "pathname"),
-    Trigger("jobs-refresh-btn", "n_clicks"),
-)
-def page_load():
+def sync_table():
     user_name = get_user_name()
     user_id = get_user_id(user_name)
-
     user_tasks = get_user_task_rows(
         newest_first=True,
         user_id=user_id,
         include_payloads=False,
-        columns={"status", "task_name", "progress", "task_id"},
+        columns={"status", "task_name", "progress", "task_id", "created_at"},
         limit=_MAX_USER_TASKS_TOTAL
     )
-
     for i, t in enumerate(user_tasks):
         if t["status"] in {"PENDING"}:
             user_tasks[i]["status"] += f"-{get_queue_position(t['task_id'])-1}"
-
     return user_tasks
+
+
+@callback(
+    Output("jobs-table", "data"),
+    Trigger("jobs-refresh-btn", "id"),
+    Trigger("jobs-refresh-btn", "n_clicks"),
+    prevent_initial_call=False,
+)
+def cb_jobs_refresh():
+    return sync_table()
+
 
 
 @callback(
@@ -155,13 +166,10 @@ def page_load():
     Trigger("jobs-poll", "n_intervals"),
     State("jobs-current-id", "data"),
 )
-def poll_job(task_id):
+def cb_jobs_poll_job(task_id):
     
     if task_id is None:
         return 0, "0%", True, no_update, False, no_update
-    
-    user_name = get_user_name()
-    user_id = get_user_id(user_name)
 
     task = get_task(task_id)
     if task is None:
@@ -169,25 +177,15 @@ def poll_job(task_id):
 
     status = task["status"]
 
-    user_tasks = get_user_task_rows(
-        newest_first=True,
-        user_id=user_id,
-        include_payloads=False,
-        columns={"status", "task_name", "progress", "task_id"},
-        limit=_MAX_USER_TASKS_TOTAL
-    )
-
+    user_tasks = sync_table()
     if status in {"COMPLETED", "ABORTED"}:
         user_tasks.append({
             "task_name": task["task_name"],
             "status": status,
             "task_id": task_id,
             "progress": task["progress"],
+            "created_at": task["created_at"],
         })
-
-    for i, t in enumerate(user_tasks):
-        if t["status"] in {"PENDING"}:
-            user_tasks[i]["status"] += f"-{get_queue_position(t['task_id'])-1}"
 
     if status in {"COMPLETED", "ABORTED"}:
         return 100, "100%", False, task_id, True, user_tasks
@@ -199,27 +197,15 @@ def poll_job(task_id):
     return progress, f"{progress}%", False, no_update, True, user_tasks
 
 
-
 @callback(
-    Output("mobile-sidebar", "is_open"),
-    Input("open-sidebar-btn", "n_clicks"),
-    State("mobile-sidebar", "is_open"),
-    prevent_initial_call=True,
-)
-def toggle_mobile_sidebar(n_clicks, is_open):
-    return not is_open
-
-
-@callback(
-    Output("jobs-poll", "n_intervals"),
     Output("jobs-current-id", "data"),
     Trigger("jobs-finished-id", "data"),
 )
-def next_job():
+def cb_jobs_next_job():
     user_name = get_user_name()
     user_id = get_user_id(user_name)
     task_id = get_next_user_task_id(user_id)
-    return 0, task_id
+    return task_id
 
 
 @callback(
@@ -231,7 +217,7 @@ def next_job():
     State('jobs-table', 'data'),
     prevent_initial_call=True,
 )
-def cb_delete_rows(selected_rows, data):
+def cb_jobs_delete_rows(selected_rows, data):
     if selected_rows is None:
         raise PreventUpdate
     if not len(selected_rows):
@@ -247,7 +233,6 @@ def cb_delete_rows(selected_rows, data):
     Output("jobs-delete-msg", "displayed"),
     Output("jobs-delete-msg", "message"),
     Output("jobs-poll", "disabled"),
-    Output("jobs-poll", "n_intervals"),
     Output("jobs-current-id", "data"),
     Output("jobs-progress", "value"),
     Output("jobs-progress-text", "children"),
@@ -257,7 +242,7 @@ def cb_delete_rows(selected_rows, data):
     State("jobs-current-id", "data"),
     prevent_initial_call=True,
 )
-def cb_delete_after_confirm(task_data, current_task_id):
+def cb_jobs_delete_after_confirm(task_data, current_task_id):
     if not task_data:
         raise PreventUpdate
 
@@ -277,8 +262,21 @@ def cb_delete_after_confirm(task_data, current_task_id):
         next_task_id = get_next_user_task_id(user_id)
 
         if next_task_id is None:
-            return True, msg, True, 0, None, 0, "0%", 0
+            return True, msg, True, None, 0, "0%", 0
 
-        return True, msg, False, 0, next_task_id, 0, "0%", 0
+        return True, msg, False, next_task_id, 0, "0%", 0
 
-    return True, msg, no_update, no_update, no_update, no_update, no_update, 0
+    return True, msg, no_update, no_update, no_update, no_update, 0
+
+
+clientside_callback(
+    """
+    function(widthBreakpoint) {
+        return widthBreakpoint === "mobile"
+            ? ["task_id", "status", "created_at"]
+            : ["task_id"];
+    }
+    """,
+    Output("jobs-table", "hidden_columns"),
+    Input("breakpoints", "widthBreakpoint"),
+)

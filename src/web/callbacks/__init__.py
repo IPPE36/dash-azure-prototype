@@ -1,7 +1,7 @@
 # src/web/callbacks/__init__.py
 
-from .banner import register_callbacks_banner
+from .navbar import register_callbacks_navbar
 
 __all__ = [
-    "register_callbacks_banner",
+    "register_callbacks_navbar",
 ]

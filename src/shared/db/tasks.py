@@ -10,6 +10,7 @@ from .core import Payload, SessionLocal, Tasks
 
 ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
 _VERSION = os.getenv("APP_VERSION", "1.0")
+_STRFTIME = "%d-%m-%Y %H:%M"
 _TASK_COLUMN_MAP = {
     "task_id": Tasks.task_id,
     "user_id": Tasks.user_id,
@@ -20,6 +21,7 @@ _TASK_COLUMN_MAP = {
     "input_payload": Tasks.input_payload,
     "output_payload": Tasks.output_payload,
     "error_payload": Tasks.error_payload,
+    "created_at": Tasks.created_at,
 }
 _DEFAULT_COLUMNS = (
     "task_id",
@@ -28,6 +30,7 @@ _DEFAULT_COLUMNS = (
     "version",
     "status",
     "progress",
+    "created_at",
 )
 
 
@@ -93,7 +96,16 @@ def get_task(task_id: int, *, include_payloads: bool = True) -> dict[str, Any] |
     with SessionLocal() as session:
         stmt = select(*cols).where(Tasks.task_id == task_id).limit(1)
         row = session.execute(stmt).mappings().first()
-        return dict(row) if row else None
+
+        if not row:
+            return None
+
+        result = dict(row)
+
+        if "created_at" in result and result["created_at"]:
+            result["created_at"] = result["created_at"].strftime(_STRFTIME)
+
+        return result
     
     
 def get_user_task_count(user_id: int, statuses: set[str] = ACTIVE_TASK_STATUSES) -> int:
@@ -188,4 +200,14 @@ def get_user_task_rows(
             stmt = stmt.limit(limit)
 
         rows = session.execute(stmt).mappings().all()
-        return [dict(row) for row in rows]
+
+        result = []
+        for row in rows:
+            r = dict(row)
+
+            if "created_at" in r and r["created_at"]:
+                r["created_at"] = r["created_at"].strftime(_STRFTIME)
+
+            result.append(r)
+
+        return result

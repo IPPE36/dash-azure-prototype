@@ -1,13 +1,13 @@
 # src/web/callbacks/background.py
 
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import html, Input, Output, callback, page_registry
+from dash_extensions.enrich import html, Input, Output, page_registry
 
 from web.auth import get_user_name
 from web.theme import ICON_PAGE_HOME, ICON_PAGE_APP
 
 
-def register_callbacks_banner(dash_app) -> None:
+def register_callbacks_navbar(dash_app) -> None:
         
     @dash_app.callback(
         Output("topbar-nav-menu", "children"),
@@ -15,7 +15,7 @@ def register_callbacks_banner(dash_app) -> None:
         Output("topbar-nav-menu", "label"),
         Input("app-location", "pathname"),
     )
-    def sync_top_banner(pathname: str | None):
+    def sync_navbar(pathname: str | None):
         normalized_path = pathname or "/"
         nav_items = []
         for page in page_registry.values():

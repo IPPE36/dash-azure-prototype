@@ -5,13 +5,14 @@ import redis
 
 from flask_session import Session
 import dash_bootstrap_components as dbc
-from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
+from dash_extensions.enrich import html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
+from dash_breakpoints_new import WindowBreakpoints
 
 from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
 from .layouts.navbar import build_navbar
-from .callbacks.banner import register_callbacks_banner
+from .callbacks.navbar import register_callbacks_navbar
 
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
@@ -67,23 +68,12 @@ server.register_blueprint(auth_bp)
 server.before_request(request_guard)
 
 app.layout = html.Div([
-    dcc.Location(id="app-location"),
+    WindowBreakpoints(
+        id="breakpoints",
+        widthBreakpointThresholdsPx=[768, 1200],
+        widthBreakpointNames=["mobile", "tablet", "desktop"],
+    ),
     build_navbar(),
     page_container,
 ])
-
-register_callbacks_banner(app)
-
-if __name__ == "__main__":
-    if _DEV:
-        if _LOCAL_SERVER:
-            server.run(host='localhost', port=8601, debug=False)
-        else:  # use certificate and key files
-            context = ('D:\Cert\Export\cert.pem', 'D:\Cert\Export\server.key')
-            server.run(host='0.0.0.0', port=8601, debug=False, ssl_context=context)
-    else:
-        if _LOCAL_SERVER:
-            server.run(host='0.0.0.0', port=443, debug=False)
-        else:  # use certificate and key files
-            context = ('D:\Cert\Export\cert.pem', 'D:\Cert\Export\server.key')
-            server.run(host='0.0.0.0', port=443, debug=False, ssl_context=context)
+register_callbacks_navbar(app)
