@@ -14,53 +14,73 @@ from web.theme import (
 def build_sidebar_layout(
     *,
     content,
-    content_sidebar = [],
-    nav_items: Iterable[tuple[str, str]],
+    content_sidebar=None,
+    nav_items=None,
 ):
-    """Returns a content layout with page title and main area."""
     panel_padding = "1rem"
-    _ = nav_items
+    content_sidebar = content_sidebar or []
+
     sidebar = dbc.Col(
         [
             html.H3("Menu", className="mb-3"),
-            content_sidebar,
+            *content_sidebar,
         ],
         xs=12,
         md=4,
         lg=3,
+        className="d-none d-md-block",
         style={
             "backgroundColor": COLOR_MID_GRAY,
             "padding": panel_padding,
+            "minHeight": "100vh",
         },
     )
+
     main = dbc.Col(
-        content,
+        [
+            dbc.Button(
+                "Menu",
+                id="open-sidebar-btn",
+                className="d-md-none mb-3",
+            ),
+            content,
+        ],
         xs=12,
         md=8,
         lg=9,
         style={
             "backgroundColor": COLOR_LIGHT_GRAY,
             "padding": panel_padding,
-        },
-    )
-    layout = dbc.Row(
-        [sidebar, main],
-        className="g-0",
-        style={
-            "flex": "1 1 auto",
             "minHeight": "100vh",
-            "overflow": "hidden",
-            "backgroundColor": COLOR_LIGHT_GRAY,
         },
     )
+
+    mobile_sidebar = dbc.Offcanvas(
+        [
+            html.H3("Menu", className="mb-3"),
+            *content_sidebar,
+        ],
+        id="mobile-sidebar",
+        title="Menu",
+        is_open=False,
+        placement="start",
+        className="d-md-none",
+    )
+
     return html.Div(
-        children=[layout],
+        [
+            mobile_sidebar,
+            dbc.Row(
+                [sidebar, main],
+                className="g-0",
+                style={
+                    "minHeight": "100vh",
+                    "backgroundColor": COLOR_LIGHT_GRAY,
+                },
+            ),
+        ],
         style={
             "minHeight": "100vh",
-            "display": "flex",
-            "flexDirection": "column",
-            "overflow": "hidden",
-            "borderRadius": 0,
             "backgroundColor": COLOR_LIGHT_GRAY,
         },
     )

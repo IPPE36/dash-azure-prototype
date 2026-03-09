@@ -31,6 +31,22 @@ layout = build_sidebar_layout(
 )
 
 
+clientside_callback(
+    """
+    function(disabled) {
+        return {
+            position: "absolute",
+            top: "8px",
+            right: "12px",
+            display: disabled ? "none" : "block"
+        };
+    }
+    """,
+    Output("jobs-spinner-wrap", "style"),
+    Input("jobs-poll", "disabled"),
+)
+
+
 # @callback(
 #     Output("jobs-result-btn", "disabled"),
 #     Output("jobs-delete-btn", "disabled"),
@@ -107,9 +123,10 @@ def start_job(n_clicks, n_submit, task_name):
 
 @callback(
     Output("jobs-table", "data"),
-    Input("app-location", "pathname")
+    Trigger("app-location", "pathname"),
+    Trigger("jobs-refresh-btn", "n_clicks"),
 )
-def page_load(pathname):
+def page_load():
     user_name = get_user_name()
     user_id = get_user_id(user_name)
 
@@ -182,6 +199,17 @@ def poll_job(task_id):
     return progress, f"{progress}%", False, no_update, True, user_tasks
 
 
+
+@callback(
+    Output("mobile-sidebar", "is_open"),
+    Input("open-sidebar-btn", "n_clicks"),
+    State("mobile-sidebar", "is_open"),
+    prevent_initial_call=True,
+)
+def toggle_mobile_sidebar(n_clicks, is_open):
+    return not is_open
+
+
 @callback(
     Output("jobs-poll", "n_intervals"),
     Output("jobs-current-id", "data"),
@@ -223,6 +251,7 @@ def cb_delete_rows(selected_rows, data):
     Output("jobs-current-id", "data"),
     Output("jobs-progress", "value"),
     Output("jobs-progress-text", "children"),
+    Output("jobs-refresh-btn", "n_clicks"),  # refreshes table upon delete
     Trigger("jobs-delete-confirm", "submit_n_clicks"),
     State("jobs-todelete-id", "data"),
     State("jobs-current-id", "data"),
@@ -248,8 +277,8 @@ def cb_delete_after_confirm(task_data, current_task_id):
         next_task_id = get_next_user_task_id(user_id)
 
         if next_task_id is None:
-            return True, msg, True, 0, None, 0, "0%"
+            return True, msg, True, 0, None, 0, "0%", 0
 
-        return True, msg, False, 0, next_task_id, 0, "0%"
+        return True, msg, False, 0, next_task_id, 0, "0%", 0
 
-    return True, msg, no_update, no_update, no_update, no_update, no_update
+    return True, msg, no_update, no_update, no_update, no_update, no_update, 0

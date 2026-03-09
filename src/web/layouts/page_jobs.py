@@ -14,7 +14,7 @@ COLUMNS = [
 ]
 
 
-def build_active_job_card(interval: int, width="50rem"):
+def build_active_job_card(interval: int, width="100%"):
     job_card = dbc.Card([
         dcc.ConfirmDialog(id="jobs-submit-msg", message=""),
         dcc.ConfirmDialog(id="jobs-delete-msg", message=""),
@@ -23,18 +23,36 @@ def build_active_job_card(interval: int, width="50rem"):
         dcc.Store(id="jobs-finished-id", data=None),
         dcc.Store(id="jobs-todelete-id", data=None),
         dcc.Interval(id="jobs-poll", interval=interval, disabled=False, n_intervals=0, max_intervals=300),
-        dbc.CardHeader([
-            html.H5("Active Jobs", className="mb-2"),
-            html.Div(
-                dbc.InputGroup(
-                    [
-                        dbc.Input(id="jobs-submit-inp", type="text", maxLength=60, placeholder="Job Name"),
-                        dbc.Button("Submit", id="jobs-submit-btn", size="sm", color="primary"),
-                    ],
-                    className="flex-grow-1 me-2"
+        dbc.CardHeader(
+            [
+                html.H5("My Optimizations", className="mb-2"),
+
+                html.Div(
+                    dbc.InputGroup(
+                        [
+                            dbc.Input(id="jobs-submit-inp", type="text", maxLength=60, placeholder="Job Name"),
+                            dbc.Button("Submit", id="jobs-submit-btn", size="sm", color="primary"),
+                        ],
+                        className="flex-grow-1 me-2"
+                    ),
                 ),
-            )
-        ]),
+                html.Div(
+                    dbc.Spinner(
+                        id="jobs-spinner",
+                        size="sm",
+                        color="primary",
+                    ),
+                    id="jobs-spinner-wrap",
+                    style={
+                        "position": "absolute",
+                        "top": "8px",
+                        "right": "12px",
+                        "display": "none",
+                    },
+                )
+            ],
+            className="position-relative",
+        ),
         dbc.Collapse(
             dbc.CardHeader(
                 [
@@ -84,6 +102,7 @@ def build_active_job_card(interval: int, width="50rem"):
             html.Div(
                 className="d-flex gap-2",
                 children=[
+                    dbc.Button("", id="jobs-refresh-btn", size="sm", color="secondary", disabled=False),
                     dbc.Button("Load Results", id="jobs-result-btn", size="sm", color="secondary", disabled=True),
                     dbc.Button("Delete", id="jobs-delete-btn", size="sm", color="secondary", disabled=True),
                 ],

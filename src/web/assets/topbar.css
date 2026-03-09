@@ -25,3 +25,9 @@
     font-weight: 900;
     margin-right: 0.5rem;
 }
+
+#jobs-refresh-btn::before {
+    content: "\f021";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
