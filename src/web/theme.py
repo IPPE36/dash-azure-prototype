@@ -8,3 +8,5 @@ TRANSPARENT = 'rgba(0,0,0,0)'
 ICON_PAGE_APP = "fa-solid fa-cube me-2"
 ICON_PAGE_HOME = "fa-solid fa-house me-2"
 ICON_USER_LOGOUT = "fa-solid fa-right-from-bracket me-2"
+
+TABLE_TAG_UNICODE = "⬤"

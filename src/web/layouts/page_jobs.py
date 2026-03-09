@@ -9,6 +9,7 @@ from web.theme import TRANSPARENT
 
 COLUMNS = [
     {"name": "ID", "id": "task_id", "editable": False},
+    {"name": "STATUS", "id": "status_icon", "editable": False},
     {"name": "STATUS", "id": "status", "editable": False},
     {"name": "LABEL", "id": "task_name", "editable": True},
     {"name": "DATE", "id": "created_at", "editable": False}
@@ -97,6 +98,26 @@ def build_active_job_card():
                     {"selector": ".show-hide", "rule": "display: none"},  # hides toggle columns button
                     {"selector": "tr:first-child", "rule": "display: none"},  # hides header row
                 ],
+                style_data_conditional=[
+                    # default color
+                    {
+                        "if": {"column_id": "status_icon"},
+                        "color": "lightgray",
+                    },
+                    # overrides
+                    {
+                        "if": {"filter_query": '{status} = "COMPLETED"', "column_id": "status_icon"},
+                        "color": "green",
+                    },
+                    {
+                        "if": {"filter_query": '{status} = "ABORTED"', "column_id": "status_icon"},
+                        "color": "red",
+                    },
+                    {
+                        "if": {"filter_query": '{status} = "RUNNING"', "column_id": "status_icon"},
+                        "color": "blue",
+                    },
+                ]
             ), 
         ),
         dbc.CardFooter(

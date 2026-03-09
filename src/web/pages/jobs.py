@@ -12,6 +12,7 @@ from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts.sidebar import build_sidebar_layout
 from web.layouts.page_jobs import build_active_job_card
+from web.theme import TABLE_TAG_UNICODE
 
 
 _MAX_USER_TASKS_ACTIVE = os.getenv("MAX_USER_TASKS_ACTIVE", 3)
@@ -34,7 +35,6 @@ layout = build_sidebar_layout(
     Output("mobile-sidebar", "is_open"),
     Input("open-sidebar-btn", "n_clicks"),
     State("mobile-sidebar", "is_open"),
-    prevent_initial_call=True,
 )
 def cb_jobs_toggle_mobile_sidebar(n_clicks, is_open):
     return not is_open
@@ -133,15 +133,16 @@ def sync_table():
     user_name = get_user_name()
     user_id = get_user_id(user_name)
     user_tasks = get_user_task_rows(
-        newest_first=True,
         user_id=user_id,
         include_payloads=False,
         columns={"status", "task_name", "progress", "task_id", "created_at"},
-        limit=_MAX_USER_TASKS_TOTAL
+        limit=_MAX_USER_TASKS_TOTAL,
+        newest_first=True,
     )
     for i, t in enumerate(user_tasks):
         if t["status"] in {"PENDING"}:
             user_tasks[i]["status"] += f"-{get_queue_position(t['task_id'])-1}"
+        user_tasks[i]["status_icon"] = TABLE_TAG_UNICODE
     return user_tasks
 
 
@@ -176,6 +177,7 @@ def cb_jobs_poll_job(task_id):
         return 0, "0%", True, no_update, False, no_update
 
     status = task["status"]
+    task["status_icon"] = TABLE_TAG_UNICODE
 
     user_tasks = sync_table()
     if status in {"COMPLETED", "ABORTED"}:
@@ -215,7 +217,6 @@ def cb_jobs_next_job():
     Trigger('jobs-delete-btn', "n_clicks"),
     State('jobs-table', 'selected_rows'),
     State('jobs-table', 'data'),
-    prevent_initial_call=True,
 )
 def cb_jobs_delete_rows(selected_rows, data):
     if selected_rows is None:
@@ -240,7 +241,6 @@ def cb_jobs_delete_rows(selected_rows, data):
     Trigger("jobs-delete-confirm", "submit_n_clicks"),
     State("jobs-todelete-id", "data"),
     State("jobs-current-id", "data"),
-    prevent_initial_call=True,
 )
 def cb_jobs_delete_after_confirm(task_data, current_task_id):
     if not task_data:
@@ -250,7 +250,6 @@ def cb_jobs_delete_after_confirm(task_data, current_task_id):
     label = task_data["task_name"]
 
     delete_task(task_id)
-
     msg = f'Deleted Task "{label}" with ID {task_id}!'
 
     if task_id == current_task_id:
@@ -272,9 +271,13 @@ def cb_jobs_delete_after_confirm(task_data, current_task_id):
 clientside_callback(
     """
     function(widthBreakpoint) {
-        return widthBreakpoint === "mobile"
-            ? ["task_id", "status", "created_at"]
-            : ["task_id"];
+        if (widthBreakpoint === "mobile") {
+            return ["task_id", "status", "created_at"];
+        } else if (widthBreakpoint === "tablet") {
+            return ["task_id", "status"];
+        } else {
+            return ["task_id"];
+        }
     }
     """,
     Output("jobs-table", "hidden_columns"),
