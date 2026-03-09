@@ -37,33 +37,44 @@ def build_navbar():
                 ),
                 dbc.Nav(
                     [
-                        dbc.DropdownMenu(
-                            id="topbar-user-menu",
-                            label="Account",
+                        dbc.Button(
+                            "Account",
+                            id="navbar-user-btn",
                             color="primary",
                             size="md",
-                            className="border border-white rounded-2",
-                            align_end=True,
-                            children=[
-                                html.Div(
-                                    dbc.Switch(
-                                        id="topbar-expert-switch",
-                                        label="Expertmode",
-                                        value=False,
-                                    ),
-                                    className="px-3 py-2",
-                                ),
-                                dbc.DropdownMenuItem(divider=True),
-                                dbc.DropdownMenuItem(
-                                    [
-                                        html.I(className=ICON_USER_LOGOUT),
-                                        html.Span("Logout"),
-                                    ],
-                                    href="/logout",
-                                    external_link=True,
-                                ),
-                            ],
+                            className="border border-white",
                         ),
+                        dbc.Popover(
+                            [
+                                dbc.PopoverBody(
+                                    [
+                                        dbc.Switch(
+                                            id="navbar-expert-switch",
+                                            label="Expertmode",
+                                            value=False,
+                                            className="mb-2",
+                                        ),
+
+                                        html.Hr(className="my-2"),
+                                        dbc.Button(
+                                            [
+                                                html.I(className=ICON_USER_LOGOUT),
+                                                html.Span(" Logout"),
+                                            ],
+                                            href="/logout",
+                                            external_link=True,
+                                            color="light",
+                                            size="sm",
+                                            className="w-100",
+                                        ),
+                                    ]
+                                )
+                            ],
+                            id="navbar-user-popover",
+                            target="navbar-user-btn",
+                            trigger="click",
+                            placement="bottom-end",
+                        )
                     ],
                     className="ms-auto d-flex align-items-center gap-2",
                     navbar=True,

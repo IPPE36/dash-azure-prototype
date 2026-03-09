@@ -1,7 +1,5 @@
 # src/web/layout/layout_sidebar.py
 
-from typing import Iterable
-
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
@@ -13,18 +11,14 @@ from web.theme import (
 
 def build_sidebar_layout(
     *,
-    content,
+    content_main=None,
     content_sidebar=None,
-    nav_items=None,
 ):
     panel_padding = "1rem"
     content_sidebar = content_sidebar or []
 
     sidebar = dbc.Col(
-        [
-            html.H3("Menu", className="mb-3"),
-            *content_sidebar,
-        ],
+        content_sidebar,
         xs=12,
         md=4,
         lg=3,
@@ -39,11 +33,13 @@ def build_sidebar_layout(
     main = dbc.Col(
         [
             dbc.Button(
-                "Menu",
-                id="open-sidebar-btn",
-                className="d-md-none mb-3",
+                "Settings",
+                color="secondary",
+                size="md",
+                id="mobile-open-offcanvas-btn",
+                className="settings-btn d-md-none mb-3",
             ),
-            content,
+            content_main,
         ],
         xs=12,
         md=8,
@@ -57,11 +53,11 @@ def build_sidebar_layout(
 
     mobile_sidebar = dbc.Offcanvas(
         [
-            html.H3("Menu", className="mb-3"),
+            html.H3("Settings", className="mb-3"),
             *content_sidebar,
         ],
-        id="mobile-sidebar",
-        title="Menu",
+        id="mobile-offcanvas",
+        title="Settings",
         is_open=False,
         placement="start",
         className="d-md-none",

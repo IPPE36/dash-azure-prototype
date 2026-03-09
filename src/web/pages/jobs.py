@@ -12,6 +12,7 @@ from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts.sidebar import build_sidebar_layout
 from web.layouts.page_jobs import build_active_job_card
+from web.callbacks.sidebar import register_callbacks_mobile_offcanvas
 from web.theme import TABLE_TAG_UNICODE
 
 
@@ -21,22 +22,11 @@ _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 register_page(__name__, path="/jobs", title="Jobs")
 
 layout = build_sidebar_layout(
-    nav_items=[
-        ("Home", "/"),
-        ("Jobs", "/jobs"),
-    ],
-    content=build_active_job_card()
+    content_main=build_active_job_card(),
+    content_sidebar=[],  # set by callback depending on screen width
 )
 
-
-@callback(
-    Output("mobile-sidebar", "is_open"),
-    Trigger("open-sidebar-btn", "n_clicks"),
-    State("mobile-sidebar", "is_open"),
-)
-def cb_jobs_toggle_mobile_sidebar(is_open):
-    return not is_open
-
+register_callbacks_mobile_offcanvas()
 
 clientside_callback(
     """

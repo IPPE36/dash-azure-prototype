@@ -1,5 +1,5 @@
 
-#topbar-user-menu .dropdown-toggle::before {
+#navbar-user-btn::before {
     content: "\f007";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
@@ -15,6 +15,12 @@
 
 #jobs-refresh-btn::before {
     content: "\f021";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+}
+
+.settings-btn::before {
+    content: "\f013";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
 }

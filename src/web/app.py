@@ -78,4 +78,4 @@ app.layout = html.Div([
     build_nav_offcanvas(),
     page_container,
 ])
-register_callbacks_navbar(app)
+register_callbacks_navbar()
