@@ -1,12 +1,15 @@
 # src/web/layouts/__init__.py
 
 from .sidebar import build_sidebar_layout
-from .navbar import build_navbar, build_nav_offcanvas
+from .navbar import build_navbar, build_navbar_offcanvas
 from .page_jobs import build_active_job_card
+from .settings import build_settings_input_list, build_settings_dropdown
 
 __all__ = [
     "build_sidebar_layout",
     "build_navbar",
-    "build_nav_offcanvas",
+    "build_navbar_offcanvas",
     "build_active_job_card",
+    "build_settings_input_list",
+    "build_settings_dropdown",
 ]

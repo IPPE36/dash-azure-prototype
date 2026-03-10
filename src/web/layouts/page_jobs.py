@@ -33,7 +33,7 @@ def build_active_job_card():
                     dbc.InputGroup(
                         [
                             dbc.Input(id="jobs-submit-inp", type="text", maxLength=60, placeholder="Job Name"),
-                            dbc.Button("Submit", id="jobs-submit-btn", size="sm", color="primary"),
+                            dbc.Button("Submit", id="jobs-submit-btn", size="sm", color="secondary"),
                         ],
                         className="flex-grow-1 me-2"
                     ),

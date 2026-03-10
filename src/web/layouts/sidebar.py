@@ -1,11 +1,10 @@
-# src/web/layout/layout_sidebar.py
+# src/web/layout/sidebar.py
 
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
 from web.theme import (
-    COLOR_LIGHT_GRAY,
-    COLOR_MID_GRAY,
+    ICON_SETTINGS,
 )
 
 
@@ -13,21 +12,18 @@ def build_sidebar_layout(
     *,
     content_main=None,
     content_sidebar=None,
+    page_title="",
 ):
-    panel_padding = "1rem"
+
     content_sidebar = content_sidebar or []
 
     sidebar = dbc.Col(
         content_sidebar,
         xs=12,
-        md=4,
-        lg=3,
-        className="d-none d-md-block",
-        style={
-            "backgroundColor": COLOR_MID_GRAY,
-            "padding": panel_padding,
-            "minHeight": "100vh",
-        },
+        md=6,
+        lg=4,
+        id="sidebar",
+        className="bg-light d-none d-md-block p-3 min-vh-100",
     )
 
     main = dbc.Col(
@@ -42,22 +38,18 @@ def build_sidebar_layout(
             content_main,
         ],
         xs=12,
-        md=8,
-        lg=9,
-        style={
-            "backgroundColor": COLOR_LIGHT_GRAY,
-            "padding": panel_padding,
-            "minHeight": "100vh",
-        },
+        md=6,
+        lg=8,
+        className="bg-light p-3 min-vh-100",
     )
 
     mobile_sidebar = dbc.Offcanvas(
-        [
-            html.H3("Settings", className="mb-3"),
-            *content_sidebar,
-        ],
+        content_sidebar,
         id="mobile-offcanvas",
-        title="Settings",
+        title=[
+            html.I(className=ICON_SETTINGS),
+            f"{page_title}/Settings"
+        ],        
         is_open=False,
         placement="start",
         className="d-md-none",
@@ -68,15 +60,8 @@ def build_sidebar_layout(
             mobile_sidebar,
             dbc.Row(
                 [sidebar, main],
-                className="g-0",
-                style={
-                    "minHeight": "100vh",
-                    "backgroundColor": COLOR_LIGHT_GRAY,
-                },
+                className="g-0 bg-light min-vh-100",
             ),
         ],
-        style={
-            "minHeight": "100vh",
-            "backgroundColor": COLOR_LIGHT_GRAY,
-        },
+        className="bg-light",
     )

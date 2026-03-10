@@ -34,7 +34,7 @@ celery_app.conf.update(
     broker_connection_max_retries=None,
     broker_connection_timeout=5,
     broker_transport_options={
-        "visibility_timeout": 3600,  # > max expected task runtime
+        "visibility_timeout": 720,  # > max expected task runtime
         "socket_timeout": 5,
         "socket_connect_timeout": 5,
         "retry_on_timeout": True,
@@ -48,7 +48,7 @@ celery_app.conf.update(
 )
 
 @worker_process_init.connect
-def warm_models(**_kwargs):
+def warm_models(**kwargs):
     # Runs once per worker process so large models are reused by tasks.
     logger.info("model runtime warm-up started")
     from worker.model_runtime import warm_up

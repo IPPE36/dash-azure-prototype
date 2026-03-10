@@ -57,9 +57,9 @@ def update_task(task_id: int, **kwargs: Any) -> bool:
 
     for key in kwargs:
         if key.endswith("_id"):
-            raise ValueError(f"Task field is protected: {key}")
+            raise ValueError(f"Protected field: {key}")
         if key not in _TASK_COLUMN_MAP:
-            raise ValueError(f"Unknown task field: {key}")
+            raise ValueError(f"Unknown field: {key}")
 
     with SessionLocal() as session:
         stmt = (

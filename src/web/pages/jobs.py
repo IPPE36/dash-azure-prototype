@@ -10,23 +10,58 @@ from shared.db.users import get_user_id
 from shared.db.tasks import add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
-from web.layouts.sidebar import build_sidebar_layout
-from web.layouts.page_jobs import build_active_job_card
-from web.callbacks.sidebar import register_callbacks_mobile_offcanvas
+from web.layouts import build_sidebar_layout, build_active_job_card, build_settings_input_list, build_settings_dropdown
 from web.theme import TABLE_TAG_UNICODE
 
 
+_PAGE_NAME = "Jobs"
 _MAX_USER_TASKS_ACTIVE = os.getenv("MAX_USER_TASKS_ACTIVE", 3)
 _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 
-register_page(__name__, path="/jobs", title="Jobs")
+
+register_page(__name__, path="/jobs", title=_PAGE_NAME)
+
+
+settings_children = build_settings_input_list(
+    row_list=[
+        ("main", "Revenue1", 100.0, 5.0, True, True, 0, 1000, False),
+        ("main", "Revenue1 A VERY LONG LABELLING TRIAL HERE", 100.0, 5.0, True, True, 0, 1000, False),
+        ("main", "Revenue2", 100.0, 5.0, True, True, 0, 1000, False),
+        ("main", "Revenue3", 100.0, 5.0, True, True, 0, 1000, False),
+        ("sub", "Product A", 40.0, 2.5, True, True, 0, 500, False),
+        ("sub", "Product B", 60.0, None, False, True, 0, 500, False),
+        ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
+        ("main", "Cost2", 80.0, None, False, False, 0, 1000, True),
+        ("main", "Cost3", 80.0, None, False, False, 0, 1000, True),
+        ("main", "Cost4", 80.0, None, False, False, 0, 1000, True),
+        ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
+
+    ]
+)
+options=["Steel", "Concrete", "Timber", "Aluminum"]
+dd = build_settings_dropdown(options=options)
+settings_children = [settings_children, dd]
 
 layout = build_sidebar_layout(
     content_main=build_active_job_card(),
     content_sidebar=[],  # set by callback depending on screen width
+    page_title=_PAGE_NAME
 )
 
-register_callbacks_mobile_offcanvas()
+
+@callback(
+    Output("mobile-offcanvas", "children"),
+    Output("sidebar", "children"),
+    Input("breakpoints", "widthBreakpoint"),
+    prevent_initial_call=False,
+)
+def cb_place_settings(width_breakpoint):
+    if width_breakpoint == "mobile":
+        return settings_children, []
+    elif width_breakpoint is None:
+        return [], settings_children
+    return [], settings_children
+
 
 clientside_callback(
     """
@@ -86,7 +121,7 @@ clientside_callback(
     Input("jobs-submit-inp", "n_submit"),
     State("jobs-submit-inp", "value"),
 )
-def cb_jobs_start_job(n_clicks, n_submit, task_name):
+def cb_jobs_submit(n_clicks, n_submit, task_name):
 
     user_name = get_user_name()
     user_id = get_user_id(user_name)
@@ -162,7 +197,7 @@ def cb_jobs_refresh():
     Trigger("jobs-poll", "n_intervals"),
     State("jobs-current-id", "data"),
 )
-def cb_jobs_poll_job(task_id):
+def cb_jobs_poll(task_id):
     
     if task_id is None:
         return 0, "0%", True, no_update, False, no_update
@@ -198,7 +233,7 @@ def cb_jobs_poll_job(task_id):
     Output("jobs-current-id", "data"),
     Trigger("jobs-finished-id", "data"),
 )
-def cb_jobs_next_job():
+def cb_jobs_next():
     user_name = get_user_name()
     user_id = get_user_id(user_name)
     task_id = get_next_user_task_id(user_id)
@@ -213,7 +248,7 @@ def cb_jobs_next_job():
     State('jobs-table', 'selected_rows'),
     State('jobs-table', 'data'),
 )
-def cb_jobs_delete_rows(selected_rows, data):
+def cb_jobs_delete(selected_rows, data):
     if selected_rows is None:
         raise PreventUpdate
     if not len(selected_rows):
@@ -237,7 +272,7 @@ def cb_jobs_delete_rows(selected_rows, data):
     State("jobs-todelete-id", "data"),
     State("jobs-current-id", "data"),
 )
-def cb_jobs_delete_after_confirm(task_data, current_task_id):
+def cb_jobs_delete_confirm(task_data, current_task_id):
     if not task_data:
         raise PreventUpdate
 

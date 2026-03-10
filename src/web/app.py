@@ -11,8 +11,8 @@ from dash_breakpoints_new import WindowBreakpoints
 from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
-from .layouts.navbar import build_navbar, build_nav_offcanvas
-from .callbacks.navbar import register_callbacks_navbar
+from .layouts import build_navbar, build_navbar_offcanvas
+from .callbacks import register_callbacks_mobile, register_callbacks_navbar
 
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
@@ -75,7 +75,9 @@ app.layout = html.Div([
     ),
     dcc.Location(id="app-location"),
     build_navbar(),
-    build_nav_offcanvas(),
+    build_navbar_offcanvas(),
     page_container,
 ])
+
 register_callbacks_navbar()
+register_callbacks_mobile()

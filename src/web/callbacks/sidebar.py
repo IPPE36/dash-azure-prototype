@@ -3,7 +3,7 @@
 from dash_extensions.enrich import clientside_callback, Output, Input, State
 
 
-def register_callbacks_mobile_offcanvas() -> None:
+def register_callbacks_mobile() -> None:
     
     clientside_callback(
         """

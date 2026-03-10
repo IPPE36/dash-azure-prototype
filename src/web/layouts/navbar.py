@@ -7,11 +7,10 @@ from dash_extensions.enrich import html
 
 from web.theme import (
     ICON_PAGE_APP,
-    ICON_USER_LOGOUT,
+    ICON_LOGOUT,
 )
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
-_VERSION = os.getenv("APP_VERSION", "1.0")
 
 def build_navbar():
     navbar = dbc.Navbar(
@@ -58,7 +57,7 @@ def build_navbar():
                                         html.Hr(className="my-2"),
                                         dbc.Button(
                                             [
-                                                html.I(className=ICON_USER_LOGOUT),
+                                                html.I(className=ICON_LOGOUT),
                                                 html.Span(" Logout"),
                                             ],
                                             href="/logout",
@@ -90,7 +89,7 @@ def build_navbar():
     return navbar
 
 
-def build_nav_offcanvas():
+def build_navbar_offcanvas():
     return dbc.Offcanvas(
         [
             dbc.Nav(
@@ -103,7 +102,7 @@ def build_nav_offcanvas():
             ),
         ],
         id="nav-offcanvas",
-        title="Navigation",
+        title=_APP_NAME,
         is_open=False,
         placement="start",
     )
