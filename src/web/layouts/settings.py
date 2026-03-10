@@ -147,3 +147,45 @@ def build_settings_dropdown(*, options):
     )
 
     return dropdown
+
+
+
+def build_settings_slider_list(*, row_list=None):
+    """
+    row_list tuples:
+    (label, value, min_value, max_value, disabled)
+    """
+    row_list = row_list or []
+
+    items = []
+    for label, value, min_value, max_value, disabled in row_list:
+        items.append(
+            dbc.ListGroupItem(
+                html.Div(
+                    [
+                        html.Div(
+                            label,
+                            className="small text-muted mb-1",
+                            style={"textAlign": "left"},
+                        ),
+                        dcc.Slider(
+                            id={"type": "slider", "index": label},
+                            min=min_value,
+                            max=max_value,
+                            value=value,
+                            disabled=disabled,
+                            persistence=True,
+                            persistence_type="session",
+                            tooltip={"placement": "bottom", "always_visible": False},
+                            marks={
+                                min_value: str(min_value),
+                                max_value: str(max_value),
+                            },
+                        ),
+                    ]
+                ),
+                className="py-2",
+                color="light",
+            )
+        )
+    return dbc.ListGroup(items, flush=True, className="w-100", style={"border": "1px solid lightgray", "border-radius": "5px"})

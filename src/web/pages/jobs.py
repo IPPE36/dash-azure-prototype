@@ -3,6 +3,7 @@
 import os
 import uuid
 
+
 from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page, ALL, ctx
 from dash.exceptions import PreventUpdate
 
@@ -10,7 +11,7 @@ from shared.db.users import get_user_id
 from shared.db.tasks import add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
-from web.layouts import build_sidebar_layout, build_active_job_card, build_settings_input_list, build_settings_dropdown
+from web.layouts import build_sidebar_layout, build_active_job_card, build_settings_input_list, build_settings_dropdown, build_settings_slider_list
 from web.theme import TABLE_TAG_UNICODE
 
 
@@ -38,9 +39,19 @@ settings_children = build_settings_input_list(
 
     ]
 )
-options=["Steel", "Concrete", "Timber", "Aluminum"]
-dd = build_settings_dropdown(options=options)
-settings_children = [settings_children, dd]
+
+sliders = build_settings_slider_list(
+    row_list=[
+        ("Strength", 25, 0, 100, False),
+        ("Pressure", 40, 10, 80, False),
+        ("Locked value", 15, 0, 50, True),
+    ]
+)
+
+dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
+settings_children = [settings_children, dd, sliders]
+# alert = dbc.Alert("Saved!", className="auto-alert", color="success"),
+
 
 layout = build_sidebar_layout(
     content_main=build_active_job_card(),

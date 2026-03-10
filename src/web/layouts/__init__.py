@@ -3,7 +3,7 @@
 from .sidebar import build_sidebar_layout
 from .navbar import build_navbar, build_navbar_offcanvas
 from .page_jobs import build_active_job_card
-from .settings import build_settings_input_list, build_settings_dropdown
+from .settings import build_settings_input_list, build_settings_dropdown, build_settings_slider_list
 
 __all__ = [
     "build_sidebar_layout",
@@ -12,4 +12,5 @@ __all__ = [
     "build_active_job_card",
     "build_settings_input_list",
     "build_settings_dropdown",
+    "build_settings_slider_list",
 ]
