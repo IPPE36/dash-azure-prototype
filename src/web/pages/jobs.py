@@ -25,18 +25,17 @@ register_page(__name__, path="/jobs", title=_PAGE_NAME)
 
 settings_children = build_settings_input_list(
     row_list=[
-        ("main", "Revenue1", 100.0, 5.0, True, True, 0, 1000, False),
-        ("main", "Revenue1 A VERY LONG LABELLING TRIAL HERE", 100.0, 5.0, True, True, 0, 1000, False),
-        ("main", "Revenue2", 100.0, 5.0, True, True, 0, 1000, False),
-        ("main", "Revenue3", 100.0, 5.0, True, True, 0, 1000, False),
-        ("sub", "Product A", 40.0, 2.5, True, True, 0, 500, False),
-        ("sub", "Product B", 60.0, None, False, True, 0, 500, False),
+        # ("main", "Revenue1", 100.0, 5.0, True, True, 0, 1000, False),
+        # ("main", "Revenue1 A VERY LONG LABELLING TRIAL HERE", 100.0, 5.0, True, True, 0, 1000, False),
+        # ("main", "Revenue2", 100.0, 5.0, True, True, 0, 1000, False),
+        # ("main", "Revenue3", 100.0, 5.0, True, True, 0, 1000, False),
+        # ("sub", "Product A", 40.0, 2.5, True, True, 0, 500, False),
+        # ("sub", "Product B", 60.0, None, False, True, 0, 500, False),
         ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
         ("main", "Cost2", 80.0, None, False, False, 0, 1000, True),
         ("main", "Cost3", 80.0, None, False, False, 0, 1000, True),
         ("main", "Cost4", 80.0, None, False, False, 0, 1000, True),
         ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
-
     ]
 )
 
@@ -49,7 +48,7 @@ sliders = build_settings_slider_list(
 )
 
 dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
-settings_children = [settings_children, sliders, dd]
+settings_children = [dd, settings_children, sliders]
 # alert = dbc.Alert("Saved!", className="auto-alert", color="success"),
 
 

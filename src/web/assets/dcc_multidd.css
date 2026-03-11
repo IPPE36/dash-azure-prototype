@@ -1,0 +1,22 @@
+/* Selected tag container */
+.Select--multi .Select-value {
+    background-color: var(--bs-secondary) !important;
+    border: 1px solid var(--bs-secondary) !important;
+    color: white !important;
+    border-radius: 0.375rem;
+}
+/* Text inside tag */
+.Select--multi .Select-value-label {
+    color: white !important;
+    padding-left: 6px;
+    padding-right: 6px;
+}
+/* X icon container */
+.Select--multi .Select-value-icon {
+    color: white !important;
+}
+/* Hover on X */
+.Select--multi .Select-value-icon:hover {
+    background-color: var(--bs-secondary) !important;
+    color: white !important;
+}

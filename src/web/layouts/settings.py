@@ -34,13 +34,20 @@ def build_settings_input_list(*, row_list=None):
         is_sub = level == "sub"
         prefix = "→ " if is_sub else ""
 
+        INPUT_HEIGHT = "26px" if is_sub else "30px"
+        INPUT_PADDING = "py-0" if is_sub else "py-1"
+        FONT_SIZE = "0.9rem" if is_sub else "1rem"
+        ROW_MARGIN = "2px" if is_sub else "6px"
+        LINE_HEIGHT = "0.8" if is_sub else "1.1"
+
         row_children = [
             dbc.Col(
                 html.Div(
                     f"{prefix}{label}",
                     style={
                         "whiteSpace": "normal",
-                        "lineHeight": "1.1",
+                        "lineHeight": LINE_HEIGHT,
+                        "fontSize": FONT_SIZE,
                     },
                 ),
                 className="d-flex align-items-center px-0 mx-0",
@@ -75,9 +82,11 @@ def build_settings_input_list(*, row_list=None):
                     disabled=disabled,
                     persistence=True,
                     persistence_type="session",
-                    className="compact-input text-center bg-light mx-0 px-0 py-1",
+                    className=f"compact-input text-center mx-0 px-0 {INPUT_PADDING}",
                     style={
                         "width": AVG_INPUT_WIDTH,
+                        "height": INPUT_HEIGHT,
+                        "fontSize": FONT_SIZE,
                     },
                 ),
                 width="auto",
@@ -107,9 +116,11 @@ def build_settings_input_list(*, row_list=None):
                             disabled=disabled,
                             persistence=True,
                             persistence_type="session",
-                            className="compact-input text-center bg-light px-0 mx-0 py-1",
+                            className=f"compact-input text-center px-0 mx-0 {INPUT_PADDING}",
                             style={
                                 "width": STD_INPUT_WIDTH,
+                                "height": INPUT_HEIGHT,
+                                "fontSize": FONT_SIZE,
                             },
                         ),
                         width="auto",
@@ -122,7 +133,7 @@ def build_settings_input_list(*, row_list=None):
             dbc.Col(
                 html.Div(
                     "[MPa]",
-                    className="text-end mx-0 px-1 py-1",
+                    className="text-end mx-0 px-1",
                 ),
                 width="auto",
                 className="d-flex align-items-center px-0 py-0",
@@ -133,14 +144,20 @@ def build_settings_input_list(*, row_list=None):
         children.append(
             dbc.Row(
                 row_children,
-                className="g-0 align-items-center mx-0 px-0 py-0 my-1",
+                className="g-0 align-items-center mx-0 px-0 py-0",
                 style={
                     "flexWrap": "nowrap",
-                },
+                    "marginBottom": ROW_MARGIN,
+                }
             )
         )
-
-    return html.Div(children, className="w-100")
+    
+    list_group = html.Div(
+        children,
+        className="w-100 p-1 ps-3 mb-3",
+        style={"border": "1px solid lightgray", "border-radius": "5px"}
+    )
+    return list_group
 
 
 

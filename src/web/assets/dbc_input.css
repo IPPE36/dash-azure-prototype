@@ -1,0 +1,14 @@
+/* remove number spinners */
+input.compact-input[type="number"]::-webkit-outer-spin-button,
+input.compact-input[type="number"]::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+}
+
+.compact-input {
+    -moz-appearance: textfield;
+    appearance: textfield;
+}
+
+.compact-input:disabled {
+    background-color: lightgray !important;
+}
