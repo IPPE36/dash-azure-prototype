@@ -49,7 +49,7 @@ sliders = build_settings_slider_list(
 )
 
 dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
-settings_children = [settings_children, dd, sliders]
+settings_children = [settings_children, sliders, dd]
 # alert = dbc.Alert("Saved!", className="auto-alert", color="success"),
 
 

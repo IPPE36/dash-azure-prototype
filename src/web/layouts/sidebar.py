@@ -52,7 +52,7 @@ def build_sidebar_layout(
         ],        
         is_open=False,
         placement="start",
-        className="d-md-none",
+        className="d-md-none bg-light",
     )
 
     return html.Div(

@@ -10,9 +10,24 @@ input.compact-input[type="number"]::-webkit-inner-spin-button {
     appearance: textfield;
 }
 
-.borderless-inputgroup .form-control,
-.borderless-inputgroup .input-group-text,
-.borderless-inputgroup .form-select,
-.borderless-inputgroup .form-control:focus {
-    border: none !important;
+.compact-input:disabled {
+    background-color: lightgray !important;
+}
+
+.rc-slider-track,
+.rc-slider-handle,
+.rc-slider-handle:focus,
+.rc-slider-handle:active,
+.rc-slider-handle-dragging {
+    border: 2px solid var(--bs-primary);
+}
+.rc-slider-track {
+    background-color: var(--bs-primary);
+}
+.rc-slider-disabled .rc-slider-track,
+.rc-slider-disabled .rc-slider-handle {
+    border: 2px solid lightgray;
+}
+.rc-slider-track:disabled {
+    background-color: lightgray;
 }

@@ -4,6 +4,7 @@ from dash_extensions.enrich import dcc
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
+
 def build_settings_input_list(*, row_list=None):
     """
     row_list tuples:
@@ -11,6 +12,12 @@ def build_settings_input_list(*, row_list=None):
     """
     row_list = row_list or []
     children = []
+
+    AVG_INPUT_WIDTH = "56px"
+    STD_INPUT_WIDTH = "56px"
+    SWITCH_WIDTH = "56px"
+    UNIT_WIDTH = "48px"
+    PM_WIDTH = "20px"
 
     for (
         level,
@@ -23,109 +30,118 @@ def build_settings_input_list(*, row_list=None):
         limit_max,
         use_switch,
     ) in row_list:
+
         is_sub = level == "sub"
         prefix = "→ " if is_sub else ""
 
-        base_label_width = 73 if not use_std else 50
-        label_width = f"{base_label_width - 10}%" if use_switch else f"{base_label_width}%"
-
-        controls = [
-            dbc.InputGroupText(
-                f"{prefix}{label}",
-                style={
-                    "width": label_width,
-                    "whiteSpace": "normal",
-                    "lineHeight": "1.2",
-                    "textAlign": "left",
-                    "justifyContent": "flex-start",
-                    "paddingLeft": "1rem" if is_sub else "0.5rem",
-                },
-            ),
+        row_children = [
+            dbc.Col(
+                html.Div(
+                    f"{prefix}{label}",
+                    style={
+                        "whiteSpace": "normal",
+                        "lineHeight": "1.1",
+                    },
+                ),
+                className="d-flex align-items-center px-0 mx-0",
+            )
         ]
 
         if use_switch:
-            controls.append(
-                dbc.InputGroupText(
+            row_children.append(
+                dbc.Col(
                     dbc.Switch(
                         id={"type": "use_switch", "index": label},
                         value=True,
                         disabled=disabled,
                         persistence=True,
                         persistence_type="session",
-                        style={"margin": "0"},
                     ),
-                    style={
-                        "width": "10%",
-                        "display": "flex",
-                        "justifyContent": "center",
-                        "alignItems": "center",
-                        "padding": "0",
-                    },
+                    width="auto",
+                    className="d-flex justify-content-center align-items-center ps-1",
+                    style={"width": SWITCH_WIDTH},
                 )
             )
 
-        controls.append(
-            dbc.Input(
-                id={"type": "input_avg", "index": label},
-                type="number",
-                value=avg,
-                min=limit_min,
-                max=limit_max,
-                step=1,
-                disabled=disabled,
-                persistence=True,
-                persistence_type="session",
-                className="compact-input text-center flex-grow-1",
-            )
-        )
-
-        if use_std:
-            controls.extend([
-                dbc.InputGroupText(
-                    "±",
-                    style={
-                        "justifyContent": "center",
-                        "textAlign": "center",
-                        "flex": "0 0 auto",
-                    },
-                ),
+        row_children.append(
+            dbc.Col(
                 dbc.Input(
-                    id={"type": "input_std", "index": label},
+                    id={"type": "input_avg", "index": label},
                     type="number",
-                    value=stddev,
-                    min=0,
+                    value=avg,
+                    min=limit_min,
+                    max=limit_max,
                     step=1,
                     disabled=disabled,
                     persistence=True,
                     persistence_type="session",
-                    className="compact-input text-center flex-grow-1",
+                    className="compact-input text-center bg-light mx-0 px-0 py-1",
+                    style={
+                        "width": AVG_INPUT_WIDTH,
+                    },
                 ),
-            ])
+                width="auto",
+                className="d-flex align-items-center px-0 py-0",
+            )
+        )
 
-        controls.append(
-            dbc.InputGroupText(
-                "MPa",
-                style={
-                    "justifyContent": "flex-end",
-                    "textAlign": "right",
-                    "flex": "0 0 auto",
-                },
+        if use_std:
+            row_children.extend(
+                [
+                    dbc.Col(
+                        html.Div(
+                            "±",
+                            className="text-center mx-0 px-1",
+                        ),
+                        width="auto",
+                        className="d-flex align-items-center justify-content-center px-0 py-0",
+                        style={"width": PM_WIDTH},
+                    ),
+                    dbc.Col(
+                        dbc.Input(
+                            id={"type": "input_std", "index": label},
+                            type="number",
+                            value=stddev,
+                            min=0,
+                            step=1,
+                            disabled=disabled,
+                            persistence=True,
+                            persistence_type="session",
+                            className="compact-input text-center bg-light px-0 mx-0 py-1",
+                            style={
+                                "width": STD_INPUT_WIDTH,
+                            },
+                        ),
+                        width="auto",
+                        className="d-flex align-items-center px-0 py-0",
+                    ),
+                ]
+            )
+
+        row_children.append(
+            dbc.Col(
+                html.Div(
+                    "[MPa]",
+                    className="text-end mx-0 px-1 py-1",
+                ),
+                width="auto",
+                className="d-flex align-items-center px-0 py-0",
+                style={"width": UNIT_WIDTH},
             )
         )
 
         children.append(
-            html.Div(
-                dbc.InputGroup(
-                    controls,
-                    size="sm",
-                    className="w-100 m-0 borderless-inputgroup",
-                    style={"flexWrap": "nowrap", "border": "1px solid lightgray", "border-radius": "5px"},
-                ),
-                className="m-0 mb-1",
+            dbc.Row(
+                row_children,
+                className="g-0 align-items-center mx-0 px-0 py-0 my-1",
+                style={
+                    "flexWrap": "nowrap",
+                },
             )
         )
 
     return html.Div(children, className="w-100")
+
 
 
 def build_settings_dropdown(*, options):
@@ -161,31 +177,60 @@ def build_settings_slider_list(*, row_list=None):
     for label, value, min_value, max_value, disabled in row_list:
         items.append(
             dbc.ListGroupItem(
-                html.Div(
+                dbc.Row(
                     [
-                        html.Div(
+                        dbc.Col(
                             label,
-                            className="small text-muted mb-1",
-                            style={"textAlign": "left"},
+                            width=3,
+                            className="d-flex align-items-center",
                         ),
-                        dcc.Slider(
-                            id={"type": "slider", "index": label},
-                            min=min_value,
-                            max=max_value,
-                            value=value,
-                            disabled=disabled,
-                            persistence=True,
-                            persistence_type="session",
-                            tooltip={"placement": "bottom", "always_visible": False},
-                            marks={
-                                min_value: str(min_value),
-                                max_value: str(max_value),
-                            },
+                        dbc.Col(
+                            html.Div(
+                                dbc.Switch(
+                                    id={"type": "use_switch", "index": label},
+                                    value=True,
+                                    disabled=disabled,
+                                    persistence=True,
+                                    persistence_type="session",
+                                    style={"margin": "0"},
+                                ),
+                            ),
+                            width=1,
+                            className="d-flex align-items-center",
                         ),
-                    ]
+                        dbc.Col(
+                            dcc.RangeSlider(
+                                id={"type": "slider", "index": label},
+                                min=min_value,
+                                max=max_value,
+                                value=[min_value, max_value],
+                                disabled=disabled,
+                                persistence=True,
+                                step=1,
+                                persistence_type="session",
+                                marks={
+                                    min_value: str(min_value),
+                                    max_value: str(max_value),
+                                },                  
+                                tooltip={
+                                    "placement": "top",
+                                    "always_visible": True,
+                                },
+                            ),
+                            width=8,
+                        ),
+                    ],
                 ),
-                className="py-2",
-                color="light",
+                className="bg-light",
             )
         )
-    return dbc.ListGroup(items, flush=True, className="w-100", style={"border": "1px solid lightgray", "border-radius": "5px"})
+
+    return dbc.ListGroup(
+        items,
+        flush=True,
+        className="w-100 mb-3",
+        style={
+            "border": "1px solid lightgray",
+            "borderRadius": "5px",
+        },
+    )

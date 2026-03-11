@@ -105,4 +105,5 @@ def build_navbar_offcanvas():
         title=_APP_NAME,
         is_open=False,
         placement="start",
+        className="d-md-none bg-light"
     )
