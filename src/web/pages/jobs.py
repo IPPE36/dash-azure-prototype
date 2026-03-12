@@ -44,6 +44,8 @@ sliders = build_settings_slider_list(
         ("Strength", 25, 0, 100, False),
         ("Pressure", 40, 10, 80, False),
         ("Locked value", 15, 0, 50, True),
+        ("Pressure", 40, 10, 80, False),
+        ("Pressure", 40, 10, 80, False),
     ]
 )
 

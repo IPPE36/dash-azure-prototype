@@ -182,7 +182,6 @@ def build_settings_dropdown(*, options):
     return dropdown
 
 
-
 def build_settings_slider_list(*, row_list=None):
     """
     row_list tuples:
@@ -194,50 +193,58 @@ def build_settings_slider_list(*, row_list=None):
     for label, value, min_value, max_value, disabled in row_list:
         items.append(
             dbc.ListGroupItem(
-                dbc.Row(
-                    [
+                [
+                    # Row 1: label
+                    dbc.Row(
                         dbc.Col(
                             label,
-                            width=3,
                             className="d-flex align-items-center",
                         ),
-                        dbc.Col(
-                            html.Div(
+                        className="mb-2",
+                    ),
+
+                    # Row 2: switch + slider
+                    dbc.Row(
+                        [
+                            dbc.Col(
                                 dbc.Switch(
                                     id={"type": "use_switch", "index": label},
                                     value=True,
                                     disabled=disabled,
                                     persistence=True,
                                     persistence_type="session",
-                                    style={"margin": "0"},
                                 ),
+                                className="d-flex align-items-center justify-content-center",
+                                xs=3,
+                                md=3,
+                                lg=3,
                             ),
-                            width=1,
-                            className="d-flex align-items-center",
-                        ),
-                        dbc.Col(
-                            dcc.RangeSlider(
-                                id={"type": "slider", "index": label},
-                                min=min_value,
-                                max=max_value,
-                                value=[min_value, max_value],
-                                disabled=disabled,
-                                persistence=True,
-                                step=1,
-                                persistence_type="session",
-                                marks={
-                                    min_value: str(min_value),
-                                    max_value: str(max_value),
-                                },                  
-                                tooltip={
-                                    "placement": "top",
-                                    "always_visible": True,
-                                },
+                            dbc.Col(
+                                dcc.RangeSlider(
+                                    id={"type": "slider", "index": label},
+                                    min=min_value,
+                                    max=max_value,
+                                    value=[min_value, max_value],
+                                    disabled=disabled,
+                                    persistence=True,
+                                    step=1,
+                                    persistence_type="session",
+                                    marks={
+                                        min_value: str(min_value),
+                                        max_value: str(max_value),
+                                    },
+                                    tooltip={
+                                        "placement": "top",
+                                        "always_visible": True,
+                                    },
+                                ),
+                                xs=9,
+                                md=9,
+                                lg=9,
                             ),
-                            width=8,
-                        ),
-                    ],
-                ),
+                        ]
+                    ),
+                ],
                 className="bg-light",
             )
         )

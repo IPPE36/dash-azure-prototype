@@ -25,8 +25,7 @@ def build_navbar():
                         className="text-white d-flex align-items-center",
                     ),
                     id="open-nav-offcanvas",
-                    n_clicks=0,
-                    className="btn btn-link p-0 border-0 text-decoration-none",
+                    className="btn btn-link p-2 border-0 text-decoration-none",
                     style={"cursor": "pointer"},
                 ),
                 html.Span("/", className="mx-1 text-white-50"),
@@ -80,12 +79,10 @@ def build_navbar():
                 ),
             ],
             fluid=True,
-            className="py-2",
+            className="py-2 navbar-inner",
         ),
         color="primary",
-        dark=True,
-        className="border-bottom fixed-top",
-        id="navbar",
+        className="app-navbar border-bottom fixed-top px-3",
     )
     return navbar
 

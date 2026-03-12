@@ -1,0 +1,35 @@
+/* Global settings */
+:root {
+    --navbar-height: 75px;
+}
+html,
+body {
+    height: 100%;
+    overflow: hidden;
+}
+.app-content {
+    margin-top: var(--navbar-height);
+    height: calc(100vh - var(--navbar-height));
+    overflow: hidden;
+}
+.app-main-row {
+    height: 100%;
+    min-height: 0;
+}
+.app-navbar {
+    height: var(--navbar-height);
+}
+.app-sidebar,
+.app-main {
+    height: calc(100vh - var(--navbar-height));
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: scroll;
+}
+.app-main {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+}
+.app-main::-webkit-scrollbar {
+    display: none;
+}

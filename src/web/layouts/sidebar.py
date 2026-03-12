@@ -23,8 +23,7 @@ def build_sidebar_layout(
         md=5,
         lg=3,
         id="sidebar",
-        className="bg-light d-none d-md-block p-3 min-vh-100",
-        style={"margin-top": "100px"},
+        className="app-sidebar bg-light d-none d-md-block p-3",
     )
 
     main = dbc.Col(
@@ -41,8 +40,7 @@ def build_sidebar_layout(
         xs=12,
         md=7,
         lg=9,
-        className="bg-light p-3 min-vh-100",
-        style={"margin-top": "100px"},
+        className="app-main bg-light p-3",
     )
 
     mobile_sidebar = dbc.Offcanvas(
@@ -62,7 +60,7 @@ def build_sidebar_layout(
             mobile_sidebar,
             dbc.Row(
                 [sidebar, main],
-                className="g-0 bg-light min-vh-100",
+                className="app-main-row g-0 bg-light",
             ),
         ],
         className="bg-light",

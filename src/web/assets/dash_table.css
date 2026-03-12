@@ -1,0 +1,5 @@
+/* Dash DataTable font */
+
+.dash-table-container * {
+    font-family: var(--bs-body-font-family);
+}
