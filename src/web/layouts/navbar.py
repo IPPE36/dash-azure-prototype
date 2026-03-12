@@ -16,7 +16,7 @@ def build_navbar():
     navbar = dbc.Navbar(
         dbc.Container(
             [   
-                html.Button(
+                dbc.Button(
                     dbc.NavbarBrand(
                         [
                             html.I(className=ICON_PAGE_APP),
@@ -84,7 +84,8 @@ def build_navbar():
         ),
         color="primary",
         dark=True,
-        className="border-bottom",
+        className="border-bottom fixed-top",
+        id="navbar",
     )
     return navbar
 
@@ -105,5 +106,5 @@ def build_navbar_offcanvas():
         title=_APP_NAME,
         is_open=False,
         placement="start",
-        className="d-md-none bg-light"
+        className="bg-light"
     )

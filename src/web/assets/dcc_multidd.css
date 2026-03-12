@@ -1,3 +1,5 @@
+/* make the dash.core.component multi-select dropdown consistent with dbc colors */
+
 /* Selected tag container */
 .Select--multi .Select-value {
     background-color: var(--bs-secondary) !important;

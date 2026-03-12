@@ -107,7 +107,7 @@ def build_active_job_card():
                     # overrides
                     {
                         "if": {"filter_query": '{status} = "COMPLETED"', "column_id": "status_icon"},
-                        "color": "green",
+                        "color": "white",
                     },
                     {
                         "if": {"filter_query": '{status} = "ABORTED"', "column_id": "status_icon"},

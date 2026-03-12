@@ -76,7 +76,7 @@ app.layout = html.Div([
     dcc.Location(id="app-location"),
     build_navbar(),
     build_navbar_offcanvas(),
-    page_container,
+    html.Div(page_container, className="app-content"),
 ])
 
 register_callbacks_navbar()

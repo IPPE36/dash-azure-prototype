@@ -1,19 +1,26 @@
+/* make the dash.core.component sliders consistent with dbc colors */
+
 .rc-slider-track,
 .rc-slider-handle,
+.rc-slider-handle:hover,
 .rc-slider-handle:focus,
 .rc-slider-handle:active,
 .rc-slider-handle-dragging {
-    border: 2px solid var(--bs-primary);
+    border: 3px solid var(--bs-primary);
 }
 .rc-slider-track {
     background-color: var(--bs-primary);
 }
 .rc-slider-disabled .rc-slider-track,
 .rc-slider-disabled .rc-slider-handle {
-    border: 2px solid lightgray;
+    border: 3px solid lightgray;
 }
 .rc-slider-track:disabled {
     background-color: lightgray;
 }
-
+.rc-slider-mark-text {
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
 

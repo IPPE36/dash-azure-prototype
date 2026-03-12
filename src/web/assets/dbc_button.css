@@ -1,3 +1,10 @@
+/* remove focus and add icons to specific buttons*/
+
+
+.btn:focus {
+    outline: 0;
+    box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
+}
 
 #navbar-user-btn::before {
     content: "\f007";
