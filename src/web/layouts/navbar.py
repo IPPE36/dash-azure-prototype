@@ -40,7 +40,7 @@ def build_navbar():
                             id="navbar-user-btn",
                             color="primary",
                             size="md",
-                            className="border border-white",
+                            className="user-btn border border-white",
                         ),
                         dbc.Popover(
                             [

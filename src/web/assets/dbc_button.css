@@ -6,21 +6,21 @@
     box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
 }
 
-#navbar-user-btn::before {
+.user-btn::before {
     content: "\f007";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
     margin-right: 0.5rem;
 }
 
-#jobs-submit-btn::before {
+.submit-btn::before {
     content: "\f061";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
     margin-right: 0.5rem;
 }
 
-#jobs-refresh-btn::before {
+.refresh-btn::before {
     content: "\f021";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
@@ -30,4 +30,32 @@
     content: "\f013";
     font-family: "Font Awesome 6 Free";
     font-weight: 900;
+}
+
+.history-btn::before {
+    content: "\f1da";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.results-btn::before {
+    content: "\f080";
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.load-btn::before {
+    content: "\f07c";  /* folder-open */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+}
+
+.delete-btn::before {
+    content: "\f1f8";  /* trash */
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
 }

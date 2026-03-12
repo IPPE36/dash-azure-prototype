@@ -19,6 +19,12 @@ body {
 .app-navbar {
     height: var(--navbar-height);
 }
+
+.main-nav {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
 .app-sidebar,
 .app-main {
     height: calc(100vh - var(--navbar-height));

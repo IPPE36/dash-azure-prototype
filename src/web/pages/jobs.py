@@ -11,7 +11,7 @@ from shared.db.users import get_user_id
 from shared.db.tasks import add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
-from web.layouts import build_sidebar_layout, build_active_job_card, build_settings_input_list, build_settings_dropdown, build_settings_slider_list
+from web.layouts import build_sidebar_layout, build_main, build_settings_input_list, build_settings_dropdown, build_settings_slider_list, build_active_job_card
 from web.theme import TABLE_TAG_UNICODE
 
 
@@ -21,7 +21,6 @@ _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 
 
 register_page(__name__, path="/jobs", title=_PAGE_NAME)
-
 
 settings_children = build_settings_input_list(
     row_list=[
@@ -38,7 +37,6 @@ settings_children = build_settings_input_list(
         ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
     ]
 )
-
 sliders = build_settings_slider_list(
     row_list=[
         ("Strength", 25, 0, 100, False),
@@ -48,14 +46,16 @@ sliders = build_settings_slider_list(
         ("Pressure", 40, 10, 80, False),
     ]
 )
-
 dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
 settings_children = [dd, settings_children, sliders]
 # alert = dbc.Alert("Saved!", className="auto-alert", color="success"),
 
-
+tabs = [
+    ("History", build_active_job_card()),
+    ("Results", []),
+]
 layout = build_sidebar_layout(
-    content_main=build_active_job_card(),
+    content_main=build_main(tabs=tabs),
     content_sidebar=[],  # set by callback depending on screen width
     page_title=_PAGE_NAME
 )

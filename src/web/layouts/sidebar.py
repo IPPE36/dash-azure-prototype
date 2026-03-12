@@ -23,24 +23,17 @@ def build_sidebar_layout(
         md=5,
         lg=3,
         id="sidebar",
-        className="app-sidebar bg-light d-none d-md-block p-3",
+        className="app-sidebar bg-light d-none d-md-block p-3",  # d-md-block shows it on large screens
     )
 
     main = dbc.Col(
         [
-            dbc.Button(
-                "Settings",
-                color="secondary",
-                size="md",
-                id="mobile-open-offcanvas-btn",
-                className="settings-btn d-md-none mb-3",
-            ),
             content_main,
         ],
         xs=12,
         md=7,
         lg=9,
-        className="app-main bg-light p-3",
+        className="app-main bg-light p-3 pt-0",
     )
 
     mobile_sidebar = dbc.Offcanvas(
@@ -65,3 +58,50 @@ def build_sidebar_layout(
         ],
         className="bg-light",
     )
+
+
+def build_main(*, tabs=[]):
+    """
+    Build a main-area nav with a settings button on the left and tab buttons on the right.
+    tabs: list of dicts with keys: label, content
+    """
+    settings_button = dbc.Button(
+        "Settings",
+        id="mobile-open-offcanvas-btn",
+        size="md",
+        color="dark",
+        className="settings-btn d-block d-md-none",  # d-md-none hides it on large screens
+    )
+    
+    tab_buttons = []
+    tab_panels = []
+    for i, (label, content) in enumerate(tabs):
+        tab_buttons.append(
+            dbc.Button(
+                label,
+                id={
+                    "type": "main-nav-btn",
+                    "index": label,
+                },
+                className=f"{label.lower()}-btn",
+                color="primary" if not i else "secondary",
+                size="md",
+            )
+        )
+        tab_panels.append(
+            html.Div(
+                content,
+                id={
+                    "type": "main-nav-panel",
+                    "index": label,
+                },
+                hidden=False if not i else True,
+            )
+        )
+
+    button_group = dbc.Row(
+        dbc.InputGroup(dbc.ButtonGroup([settings_button] + tab_buttons)),
+        className="main-nav mb-3", 
+    )
+
+    return html.Div([button_group] + tab_panels)

@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html, dcc, dash_table
 
 from web.theme import TRANSPARENT
+from web.layouts.sidebar import build_main
 
 
 COLUMNS = [
@@ -27,13 +28,12 @@ def build_active_job_card():
         dcc.Interval(id="jobs-poll", interval=1000, disabled=False),
         dbc.CardHeader(
             [
-                html.H5("My Optimizations", className="mb-2"),
-
+                html.H5("My Tasks", className="mb-2"),
                 html.Div(
                     dbc.InputGroup(
                         [
-                            dbc.Input(id="jobs-submit-inp", type="text", maxLength=60, placeholder="Job Name"),
-                            dbc.Button("Submit", id="jobs-submit-btn", size="sm", color="secondary"),
+                            dbc.Input(id="jobs-submit-inp", type="text", maxLength=60, placeholder="New Job Name"),
+                            dbc.Button("Submit", id="jobs-submit-btn", size="sm", color="secondary", className="submit-btn"),
                         ],
                         className="flex-grow-1 me-2"
                     ),
@@ -81,7 +81,7 @@ def build_active_job_card():
             id="jobs-active-container-collapse",
             is_open=False,
         ),
-        html.Div(
+        dbc.CardBody(
             dash_table.DataTable(
                 id="jobs-table",
                 columns=COLUMNS,
@@ -115,18 +115,19 @@ def build_active_job_card():
                     },
                     {
                         "if": {"filter_query": '{status} = "RUNNING"', "column_id": "status_icon"},
-                        "color": "blue",
+                        "color": "var(--bs-primary)",
                     },
-                ]
-            ), 
+                ],
+            ),
+            className="p-0",
         ),
         dbc.CardFooter(
             html.Div(
                 className="d-flex gap-2",
                 children=[
-                    dbc.Button("", id="jobs-refresh-btn", size="sm", color="secondary", disabled=False),
-                    dbc.Button("Load Results", id="jobs-result-btn", size="sm", color="secondary", disabled=True),
-                    dbc.Button("Delete", id="jobs-delete-btn", size="sm", color="secondary", disabled=True),
+                    dbc.Button("", id="jobs-refresh-btn", size="sm", color="secondary", disabled=False, className="refresh-btn"),
+                    dbc.Button("Load Results", id="jobs-result-btn", size="sm", color="secondary", disabled=True, className="load-btn"),
+                    dbc.Button("Delete", id="jobs-delete-btn", size="sm", color="secondary", disabled=True, className="delete-btn"),
                 ],
             )
         ),
