@@ -3,15 +3,14 @@
 import os
 import uuid
 
-
 from dash import ctx
-from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page
+from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page, MATCH
 from dash.exceptions import PreventUpdate
 
 from shared.db import get_user_id, add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
-from web.layouts import build_jobs_main
+from web.layouts import build_jobs_layout
 from web.layouts.global_toast import toast_class
 from web.theme import CIRCLE_TAG, HIDE, SHOW
 
@@ -23,7 +22,7 @@ _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 
 register_page(__name__, path="/jobs", title=_PAGE_NAME)
 
-layout = build_jobs_main()
+layout = build_jobs_layout()
 
 
 clientside_callback(
@@ -89,6 +88,20 @@ def cb_jobs_tabs(active_tab):
     is_history = active_tab == "jobs-tab-history"
     is_results = active_tab == "jobs-tab-results"
     return is_history, is_results
+
+
+@callback(
+    Output({"type": "slider", "index": MATCH}, "disabled"),
+    Output({"type": "slider_toggle", "index": MATCH}, "outline"),
+    Input({"type": "slider_toggle", "index": MATCH}, "n_clicks"),
+    State({"type": "slider", "index": MATCH}, "disabled"),
+    prevent_initial_call=True,
+)
+def cb_slider_toggle(n_clicks, is_disabled):
+    if not n_clicks:
+        raise PreventUpdate
+    next_disabled = not bool(is_disabled)
+    return next_disabled, next_disabled
 
 
 @callback(

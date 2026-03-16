@@ -1,30 +1,33 @@
-.jobs-tabs {
+.app-tabs {
   border-bottom: none;
 }
 
-.jobs-tabs .nav-tabs {
+.app-tabs .nav-tabs {
   border-bottom: none;
 }
 
-.jobs-tabs .nav-link {
+.app-tabs .nav-link {
   color: lightgray;
   border: none;
   border-bottom: 3px solid lightgray;
   background-color: transparent;
   font-weight: 500;
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
 }
 
-.jobs-tabs .nav-link:hover {
+.app-tabs .nav-link:hover {
   color: var(--bs-primary);
 }
 
-.jobs-tabs .nav-link.active {
+.app-tabs .nav-link.active {
   color: var(--bs-primary);
   border-bottom: 3px solid var(--bs-primary);
   background-color: transparent;
 }
 
-.jobs-tabs .nav-link::before {
+.app-tabs .nav-link::before {
     font-family: "Font Awesome 6 Free";
     margin-right: 0.5rem;
     font-weight: 900;

@@ -5,7 +5,7 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
 
-def build_settings_input_list(*, row_list=None):
+def build_input_list(*, row_list=None):
     """
     row_list tuples:
     (level, label, avg, stddev, use_std, disabled, limit_min, limit_max, use_switch)
@@ -161,7 +161,7 @@ def build_settings_input_list(*, row_list=None):
 
 
 
-def build_settings_dropdown(*, options):
+def build_dropdown(*, options):
 
     normalized_options = [
         {"label": opt, "value": opt} if not isinstance(opt, dict) else opt
@@ -182,79 +182,85 @@ def build_settings_dropdown(*, options):
     return dropdown
 
 
-def build_settings_slider_list(*, row_list=None):
+def build_sliders(*, row_list=None):
     """
     row_list tuples:
     (label, value, min_value, max_value, disabled)
+
+    value can be:
+    - None -> defaults to [min_value, max_value]
+    - a 2-item list/tuple for RangeSlider
     """
     row_list = row_list or []
 
     items = []
-    for label, value, min_value, max_value, disabled in row_list:
-        items.append(
-            dbc.ListGroupItem(
-                [
-                    # Row 1: label
-                    dbc.Row(
-                        dbc.Col(
-                            label,
-                            className="d-flex align-items-center",
-                        ),
-                        className="mb-2",
-                    ),
+    for idx, (label, value, min_value, max_value, disabled) in enumerate(row_list):
+        slider_index = f"{label}__{idx}"
+        if value is None or value == []:
+            slider_value = [min_value, max_value]
+        elif isinstance(value, (list, tuple)) and len(value) == 2:
+            slider_value = list(value)
+        else:
+            slider_value = [value, value]
 
-                    # Row 2: switch + slider
-                    dbc.Row(
-                        [
-                            dbc.Col(
-                                dbc.Switch(
-                                    id={"type": "use_switch", "index": label},
-                                    value=True,
-                                    disabled=disabled,
-                                    persistence=True,
-                                    persistence_type="session",
+        items.append(
+            dbc.Col(
+                html.Div(
+                    [
+                        # Clickable label toggles slider enable/disable
+                        html.Div(
+                            [
+                                dbc.Button(
+                                    label,
+                                    id={"type": "slider_toggle", "index": slider_index},
+                                    color="secondary",
+                                    outline=bool(disabled),
+                                    size="sm",
+                                    className="w-100 m-0 slider-toggle-btn",
+                                    style={"borderBottomLeftRadius": 0, "borderBottomRightRadius": 0},
                                 ),
-                                className="d-flex align-items-center justify-content-center",
-                                xs=3,
-                                md=3,
-                                lg=3,
+                            ],
+                            className="d-flex align-items-center justify-content-center mb-2",
+                        ),
+
+                        # Vertical slider
+                        html.Div(
+                            dcc.RangeSlider(
+                                id={"type": "slider", "index": slider_index},
+                                min=min_value,
+                                max=max_value,
+                                value=slider_value,
+                                step=1,
+                                disabled=disabled,
+                                persistence=True,
+                                persistence_type="session",
+                                vertical=True,
+                                verticalHeight=150,
+                                marks={
+                                    min_value: str(min_value),
+                                    max_value: str(max_value),
+                                },
+                                tooltip={
+                                    "placement": "left",
+                                    "always_visible": True,
+                                },
                             ),
-                            dbc.Col(
-                                dcc.RangeSlider(
-                                    id={"type": "slider", "index": label},
-                                    min=min_value,
-                                    max=max_value,
-                                    value=[min_value, max_value],
-                                    disabled=disabled,
-                                    persistence=True,
-                                    step=1,
-                                    persistence_type="session",
-                                    marks={
-                                        min_value: str(min_value),
-                                        max_value: str(max_value),
-                                    },
-                                    tooltip={
-                                        "placement": "top",
-                                        "always_visible": True,
-                                    },
-                                ),
-                                xs=9,
-                                md=9,
-                                lg=9,
-                            ),
-                        ]
-                    ),
-                ],
-                className="bg-light",
+                            className="d-flex m-0 justify-content-center",
+                            style={"height": "150px"},
+                        ),
+                    ],
+                    className="p-0 border rounded bg-light h-100",
+                ),
+                xs=4,
+                sm=4,
+                md=3,
+                lg=2,
+                className="m-0 mb-1 px-0",
             )
         )
 
-    return dbc.ListGroup(
+    return dbc.Row(
         items,
-        flush=True,
-        className="w-100 mb-3",
-        style={
-            "border": "1px solid lightgray",
-            "borderRadius": "5px",
-        },
+        className="g-2",
+        justify="start",
     )

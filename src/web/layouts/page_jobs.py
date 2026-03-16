@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html, dcc, dash_table
 
 from web.theme import TRANSPARENT, ICON_SETTINGS
+from web.layouts.settings import build_sliders
 
 
 
@@ -17,18 +18,24 @@ from web.theme import TRANSPARENT, ICON_SETTINGS
 #         ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
 #     ]
 # )
-# sliders = build_settings_slider_list(
-#     row_list=[
-#         ("Strength", 25, 0, 100, False),
-#         ("Pressure", 40, 10, 80, False),
-#         ("Locked value", 15, 0, 50, True),
-#         ("Pressure", 40, 10, 80, False),
-#         ("Pressure", 40, 10, 80, False),
-#     ]
-# )
 # dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
-# settings_children = [dd, settings_children, sliders]
 
+sliders = build_sliders(
+    row_list=[
+        ("Strength", 25, 0, 100, False),
+        ("Pressure", 40, 10, 80, False),
+        ("Locked value", 15, 0, 50, True),
+        ("Pressure", 40, 10, 80, False),
+        ("Pressure", 40, 10, 80, False),
+        ("Locked value", 15, 0, 50, True),
+        ("Pressure", 40, 10, 80, False),
+        ("Pressure", 40, 10, 80, False),
+        ("Locked value", 15, 0, 50, True),
+        ("Pressure", 40, 10, 80, False),
+        ("Pressure", 40, 10, 80, False),
+        ("Locked value", 15, 0, 50, True),
+    ]
+)
 
 COLUMNS = [
     {"name": "ID", "id": "task_id", "editable": False},
@@ -40,7 +47,7 @@ COLUMNS = [
 ]
 
 
-def build_jobs_main():
+def build_jobs_layout():
 
     submit = dbc.InputGroup(
         [
@@ -60,7 +67,33 @@ def build_jobs_main():
     )
 
     offcanvas = dbc.Offcanvas(
-        [submit],
+        [
+            dbc.Tabs(
+                [
+                    dbc.Tab(
+                        label="Boundaries",
+                        tab_id="jobs-settings-tab-bounds",
+                        children=[sliders],
+                        label_class_name="bounds-btn",
+                    ),
+                    dbc.Tab(
+                        label="Objectives",
+                        tab_id="jobs-settings-tab-objectives",
+                        children=[],
+                        label_class_name="target-btn",
+                    ),
+                    dbc.Tab(
+                        label="Submit",
+                        tab_id="jobs-settings-tab-submit",
+                        children=[submit],
+                        label_class_name="send-btn",
+                    ),
+                ],
+                id="jobs-settings-tabs",
+                active_tab="jobs-settings-tab-bounds",
+                className="app-tabs mb-3",
+            ),
+        ],
         id="jobs-settings-offcanvas",
         title=[
             html.I(className=ICON_SETTINGS),
@@ -99,7 +132,7 @@ def build_jobs_main():
                         ],
                         id="jobs-tabs",
                         active_tab="jobs-tab-history",
-                        className="jobs-tabs mb-3",
+                        className="app-tabs mb-3",
                     ),
 
                     html.Div(

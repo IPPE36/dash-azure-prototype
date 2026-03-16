@@ -8,6 +8,7 @@ body {
     overflow: hidden;
 }
 .app-content {
+    background-color: var(--bs-light);
     margin-top: var(--navbar-height);
     height: calc(100vh - var(--navbar-height));
     overflow: hidden;
@@ -20,9 +21,9 @@ body {
     height: var(--navbar-height);
 }
 .app-main {
+    background-color: white;
     height: calc(100vh - var(--navbar-height));
     min-height: 0;
     overflow-x: hidden;
     overflow-y: scroll;
-    background-color: white;
 }

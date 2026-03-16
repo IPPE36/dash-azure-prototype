@@ -23,4 +23,9 @@
     -webkit-user-select: none;
     -ms-user-select: none;
 }
-
+.rc-slider-tooltip,
+.rc-slider-tooltip-inner {
+    user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+}
