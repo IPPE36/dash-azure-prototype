@@ -155,7 +155,7 @@ def build_settings_input_list(*, row_list=None):
     list_group = html.Div(
         children,
         className="w-100 p-1 ps-3 mb-3",
-        style={"border": "1px solid lightgray", "border-radius": "5px"}
+        style={"border": "1px solid lightgray", "border-radius": "5px"},
     )
     return list_group
 

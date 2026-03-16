@@ -28,10 +28,10 @@ def build_navbar():
                     className="btn btn-link p-2 border-0 text-decoration-none",
                     style={"cursor": "pointer"},
                 ),
-                html.Span("/", className="mx-1 text-white-50"),
+                html.Span("/", className="mx-1 text-white-50 d-none d-md-inline"),
                 html.Span(
                     id="navbar-page-title",
-                    className="text-white ms-3 fw-semibold",
+                    className="text-white ms-3 fw-semibold d-none d-md-inline",
                 ),
                 dbc.Nav(
                     [

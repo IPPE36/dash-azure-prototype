@@ -1,37 +1,24 @@
 
-/* horizontal padding for main content area */
+/* horizontal padding for main content area and navbar */
+.app-content,
+.navbar-inner {
+    padding-inline: 0;
+}
+
 .app-content {
-    padding-left: 0;
-    padding-right: 0;
     background-color: var(--bs-light);
 }
+
 @media (min-width: 768px) {
-    .app-content {
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-}
-@media (min-width: 1200px) {
-    .app-content {
-        padding-left: 5rem;
-        padding-right: 5rem;
+    .app-content,
+    .navbar-inner {
+        padding-inline: 5rem;
     }
 }
 
-/* match navbar horizontal padding to content */
-.navbar-inner {
-    padding-left: 0;
-    padding-right: 0;
-}
-@media (min-width: 768px) {
-    .navbar-inner {
-        padding-left: 2rem;
-        padding-right: 2rem;
-    }
-}
 @media (min-width: 1200px) {
+    .app-content,
     .navbar-inner {
-        padding-left: 5rem;
-        padding-right: 5rem;
+        padding-inline: 10rem;
     }
 }

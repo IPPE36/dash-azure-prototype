@@ -1,0 +1,25 @@
+.jobs-tabs {
+  border-bottom: none;
+}
+
+.jobs-tabs .nav-tabs {
+  border-bottom: none;
+}
+
+.jobs-tabs .nav-link {
+  color: lightgray;
+  border: none;
+  border-bottom: 3px solid lightgray;
+  background-color: transparent;
+  font-weight: 500;
+}
+
+.jobs-tabs .nav-link:hover {
+  color: var(--bs-primary);
+}
+
+.jobs-tabs .nav-link.active {
+  color: var(--bs-primary);
+  border-bottom: 3px solid var(--bs-primary);
+  background-color: transparent;
+}

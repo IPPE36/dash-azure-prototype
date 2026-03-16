@@ -11,7 +11,7 @@ def register_callbacks_navbar() -> None:
         Output("navbar-user-btn", "children"),
         Input("app-location", "pathname"),
     )
-    def cb_navbar_update_user_name(pathname: str | None):
+    def cb_update_user_name(pathname: str | None):
         user_name = get_user_name() or "Account"
         return user_name
 
@@ -19,7 +19,7 @@ def register_callbacks_navbar() -> None:
         Output("navbar-page-title", "children"),
         Input("app-location", "pathname"),
     )
-    def cb_navbar_update_page_title(pathname):
+    def cb_update_page_title(pathname):
         for page in page_registry.values():
             if page["path"] == pathname:
                 return page.get("title", "")

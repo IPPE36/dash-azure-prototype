@@ -12,13 +12,23 @@ from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
 from .layouts import build_navbar, build_navbar_offcanvas
-from .callbacks import register_callbacks_mobile, register_callbacks_navbar
+from .callbacks import register_callbacks_navbar
+
+
+def _env_str(name: str, default: str = "") -> str:
+    # Allow inline comment style values in .env (e.g., "dev  # note").
+    return os.getenv(name, default).split("#", 1)[0].strip()
+
+
+def _env_bool(name: str, default: bool = False) -> bool:
+    raw = _env_str(name, str(default)).lower()
+    return raw in {"1", "true", "t", "yes", "y", "on"}
 
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
 _VERSION = os.getenv("APP_VERSION", "1.0")
-_LOCAL_SERVER = os.getenv("LOCAL_SERVER", "true").lower() == "true"
-_DEV = os.getenv("DEV", "true").lower() == "true"
+_LOCAL_SERVER = _env_bool("LOCAL_SERVER", default=True)
+_DEV = _env_bool("DEV", default=True)
 _CLIENT_ID = os.getenv("CLIENT_ID", "").strip()
 _CLIENT_SECRET = os.getenv("CLIENT_SECRET", "").strip()
 _TENANT_ID = os.getenv("TENANT_ID", "common").strip()
@@ -80,4 +90,3 @@ app.layout = html.Div([
 ])
 
 register_callbacks_navbar()
-register_callbacks_mobile()

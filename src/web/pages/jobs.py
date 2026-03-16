@@ -4,14 +4,14 @@ import os
 import uuid
 
 
-from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page, ALL, ctx
+from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page
 from dash.exceptions import PreventUpdate
 
 from shared.db.users import get_user_id
 from shared.db.tasks import add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
-from web.layouts import build_sidebar_layout, build_main, build_settings_input_list, build_settings_dropdown, build_settings_slider_list, build_active_job_card
+from web.layouts import build_jobs_main
 from web.theme import TABLE_TAG_UNICODE
 
 
@@ -22,57 +22,15 @@ _MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 
 register_page(__name__, path="/jobs", title=_PAGE_NAME)
 
-settings_children = build_settings_input_list(
-    row_list=[
-        # ("main", "Revenue1", 100.0, 5.0, True, True, 0, 1000, False),
-        # ("main", "Revenue1 A VERY LONG LABELLING TRIAL HERE", 100.0, 5.0, True, True, 0, 1000, False),
-        # ("main", "Revenue2", 100.0, 5.0, True, True, 0, 1000, False),
-        # ("main", "Revenue3", 100.0, 5.0, True, True, 0, 1000, False),
-        # ("sub", "Product A", 40.0, 2.5, True, True, 0, 500, False),
-        # ("sub", "Product B", 60.0, None, False, True, 0, 500, False),
-        ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
-        ("main", "Cost2", 80.0, None, False, False, 0, 1000, True),
-        ("main", "Cost3", 80.0, None, False, False, 0, 1000, True),
-        ("main", "Cost4", 80.0, None, False, False, 0, 1000, True),
-        ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
-    ]
-)
-sliders = build_settings_slider_list(
-    row_list=[
-        ("Strength", 25, 0, 100, False),
-        ("Pressure", 40, 10, 80, False),
-        ("Locked value", 15, 0, 50, True),
-        ("Pressure", 40, 10, 80, False),
-        ("Pressure", 40, 10, 80, False),
-    ]
-)
-dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
-settings_children = [dd, settings_children, sliders]
-# alert = dbc.Alert("Saved!", className="auto-alert", color="success"),
-
-tabs = [
-    ("History", build_active_job_card()),
-    ("Results", []),
-]
-layout = build_sidebar_layout(
-    content_main=build_main(tabs=tabs),
-    content_sidebar=[],  # set by callback depending on screen width
-    page_title=_PAGE_NAME
-)
+layout = build_jobs_main()
 
 
 @callback(
-    Output("mobile-offcanvas", "children"),
-    Output("sidebar", "children"),
-    Input("breakpoints", "widthBreakpoint"),
-    prevent_initial_call=False,
+    Output("jobs-settings-offcanvas", "is_open"),
+    Trigger("jobs-add-btn", "n_clicks"),
 )
-def cb_place_settings(width_breakpoint):
-    if width_breakpoint == "mobile":
-        return settings_children, []
-    elif width_breakpoint is None:
-        return [], settings_children
-    return [], settings_children
+def toggle_mobile_offcanvas():
+    return True
 
 
 clientside_callback(
@@ -120,6 +78,17 @@ clientside_callback(
     Output("jobs-delete-btn", "disabled"),
     Input("jobs-table", "selected_rows"),
 )
+
+
+@callback(
+    Output("jobs-history-container", "is_open"),
+    Output("jobs-results-container", "is_open"),
+    Input("jobs-tabs", "active_tab"),
+)
+def cb_jobs_tabs(active_tab):
+    is_history = active_tab == "jobs-tab-history"
+    is_results = active_tab == "jobs-tab-results"
+    return is_history, is_results
 
 
 @callback(
@@ -196,6 +165,42 @@ def sync_table():
 )
 def cb_jobs_refresh():
     return sync_table()
+
+
+@callback(
+    Output("jobs-table", "data"),
+    Output("jobs-search-msg", "displayed"),
+    Output("jobs-search-msg", "message"),
+    Input("jobs-search-btn", "n_clicks"),
+    Input("jobs-search-inp", "n_submit"),
+    State("jobs-search-inp", "value"),
+    prevent_initial_call=True,
+)
+def cb_jobs_search(n_clicks, n_submit, query):
+    if not n_clicks and not n_submit:
+        raise PreventUpdate
+
+    rows = sync_table()
+    if not query:
+        return rows, False, no_update
+
+    needle = query.strip().lower()
+    if not needle:
+        return rows, False, no_update
+
+    def matches(row):
+        for key in ("task_name", "status", "task_id", "created_at"):
+            value = row.get(key)
+            if value is None:
+                continue
+            if needle in str(value).lower():
+                return True
+        return False
+
+    filtered = [row for row in rows if matches(row)]
+    if not filtered:
+        return rows, True, f'No tasks found for "{query}".'
+    return filtered, False, no_update
 
 
 

@@ -1,61 +1,58 @@
 /* remove focus and add icons to specific buttons*/
 
+.btn {
+    z-index: 1;
+}
 
 .btn:focus {
     outline: 0;
     box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
 }
 
+.btn::before {
+    font-family: "Font Awesome 6 Free";
+    margin-right: 0.5rem;
+    font-weight: 900;
+}
+
 .user-btn::before {
     content: "\f007";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
 }
 
 .submit-btn::before {
     content: "\f061";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
 }
 
 .refresh-btn::before {
     content: "\f021";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
+    margin-right: 0rem;
 }
 
 .settings-btn::before {
     content: "\f013";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
 }
 
 .history-btn::before {
     content: "\f1da";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
 }
 
 .results-btn::before {
     content: "\f080";
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
 }
 
 .load-btn::before {
     content: "\f07c";  /* folder-open */
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
 }
 
 .delete-btn::before {
     content: "\f1f8";  /* trash */
-    font-family: "Font Awesome 6 Free";
-    font-weight: 900;
-    margin-right: 0.5rem;
+}
+
+.add-btn::before {
+    content: "\f067";  /* plus */
+}
+
+.search-btn::before {
+    content: "\f002";  /* magnifying-glass */
+    margin-right: 0rem;
 }
