@@ -2,6 +2,7 @@
 
 import time
 import logging
+import random
 
 from .celery_app import celery_app
 from .db.tasks import get_task, update_task
@@ -32,7 +33,22 @@ def long_task(self, x: int, *, task_id: int) -> None:
             progress += 10
             update_task(task_id, status="RUNNING", progress=progress)
 
-        update_task(task_id, status="COMPLETED", progress=progress)
+        payload_len = random.randint(10, 100)
+        output_payload = [
+            {
+                "x": random.random(),
+                "y": random.random(),
+                "z": random.random(),
+            }
+            for _ in range(payload_len)
+        ]
+
+        update_task(
+            task_id,
+            status="COMPLETED",
+            progress=progress,
+            output_payload=output_payload,
+        )
         logger.info("long_task completed", extra=log_ctx)
         return result
 
