@@ -23,3 +23,9 @@
   border-bottom: 3px solid var(--bs-primary);
   background-color: transparent;
 }
+
+.jobs-tabs .nav-link::before {
+    font-family: "Font Awesome 6 Free";
+    margin-right: 0.5rem;
+    font-weight: 900;
+}

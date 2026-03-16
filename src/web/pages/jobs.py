@@ -25,12 +25,11 @@ register_page(__name__, path="/jobs", title=_PAGE_NAME)
 layout = build_jobs_main()
 
 
-@callback(
+clientside_callback(
+    "function(n){return n ? true : window.dash_clientside.no_update;}",
     Output("jobs-settings-offcanvas", "is_open"),
-    Trigger("jobs-add-btn", "n_clicks"),
+    Input("jobs-add-btn", "n_clicks"),
 )
-def toggle_mobile_offcanvas():
-    return True
 
 
 clientside_callback(
@@ -89,6 +88,60 @@ def cb_jobs_tabs(active_tab):
     is_history = active_tab == "jobs-tab-history"
     is_results = active_tab == "jobs-tab-results"
     return is_history, is_results
+
+
+@callback(
+    Output("jobs-results-graph", "figure"),
+    Output("jobs-tabs", "active_tab"),
+    Trigger("jobs-result-btn", "n_clicks"),
+    State("jobs-table", "selected_rows"),
+    State("jobs-table", "data"),
+)
+def cb_jobs_results(selected_rows, data):
+    if not selected_rows:
+        raise PreventUpdate
+    if not data:
+        raise PreventUpdate
+
+    task_id = data[selected_rows[0]].get("task_id")
+    if task_id is None:
+        raise PreventUpdate
+
+    task = get_task(task_id, include_payloads=True)
+    if not task:
+        raise PreventUpdate
+
+    payload = task.get("output_payload") or []
+    if not isinstance(payload, list):
+        raise PreventUpdate
+
+    x_vals = [row.get("x") for row in payload if isinstance(row, dict)]
+    y_vals = [row.get("y") for row in payload if isinstance(row, dict)]
+    z_vals = [row.get("z") for row in payload if isinstance(row, dict)]
+
+    figure = {
+        "data": [
+            {
+                "type": "scatter3d",
+                "mode": "markers",
+                "x": x_vals,
+                "y": y_vals,
+                "z": z_vals,
+                "marker": {"size": 3, "color": "var(--bs-primary)"},
+            }
+        ],
+        "layout": {
+            "height": 320,
+            "margin": {"l": 10, "r": 10, "t": 10, "b": 10},
+            "scene": {
+                "xaxis": {"title": "x"},
+                "yaxis": {"title": "y"},
+                "zaxis": {"title": "z"},
+            },
+        },
+    }
+
+    return figure, "jobs-tab-results"
 
 
 @callback(

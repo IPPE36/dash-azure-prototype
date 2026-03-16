@@ -90,14 +90,14 @@ def build_jobs_main():
                     dbc.Tabs(
                         [
                             dbc.Tab(
-                                label="My Task History",
+                                label="Task History",
                                 tab_id="jobs-tab-history",
-                                tab_class_name="jobs-tab-history",
+                                label_class_name="history-btn",
                             ),
                             dbc.Tab(
                                 label="Results",
                                 tab_id="jobs-tab-results",
-                                tab_class_name="jobs-tab-results",
+                                label_class_name="results-btn",
                             ),
                         ],
                         id="jobs-tabs",
@@ -128,6 +128,11 @@ def build_jobs_main():
 
     history_section = dbc.Collapse(
         [
+            html.Div(
+                [
+                    dbc.Alert("This is a primary alert", color="primary"),
+                ],
+            ),
             html.Div(
                 [
                     dbc.Button(
