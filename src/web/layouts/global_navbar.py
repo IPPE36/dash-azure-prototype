@@ -5,21 +5,18 @@ import os
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
-from web.theme import (
-    ICON_PAGE_APP,
-    ICON_LOGOUT,
-)
+from web.theme import ICON_APP, ICON_NAV
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
 
-def build_navbar():
+def build_global_navbar():
     navbar = dbc.Navbar(
         dbc.Container(
             [   
                 dbc.Button(
                     dbc.NavbarBrand(
                         [
-                            html.I(className=ICON_PAGE_APP),
+                            html.I(className=ICON_APP),
                             html.Span(_APP_NAME, className="fw-semibold ms-2"),
                         ],
                         className="text-white d-flex align-items-center",
@@ -55,15 +52,12 @@ def build_navbar():
 
                                         html.Hr(className="my-2"),
                                         dbc.Button(
-                                            [
-                                                html.I(className=ICON_LOGOUT),
-                                                html.Span(" Logout"),
-                                            ],
+                                            "Logout",
                                             href="/logout",
                                             external_link=True,
                                             color="light",
                                             size="sm",
-                                            className="w-100",
+                                            className="logout-btn w-100",
                                         ),
                                     ]
                                 )
@@ -87,7 +81,7 @@ def build_navbar():
     return navbar
 
 
-def build_navbar_offcanvas():
+def build_global_nav_offcanvas():
     return dbc.Offcanvas(
         [
             dbc.Nav(
@@ -100,7 +94,10 @@ def build_navbar_offcanvas():
             ),
         ],
         id="nav-offcanvas",
-        title=_APP_NAME,
+        title=[
+            html.I(className=ICON_NAV),
+            f"{_APP_NAME} / Navigation"
+        ],
         is_open=False,
         placement="start",
         className="bg-light"

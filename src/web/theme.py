@@ -1,11 +1,12 @@
 # src/web/theme.py
 
+CIRCLE_TAG = "⬤"
+
 TRANSPARENT = 'rgba(0,0,0,0)'
 
-ICON_PAGE_APP = "fa-solid fa-cube me-2"
-ICON_HOME = "fa-solid fa-house me-2"
-ICON_LOGOUT = "fa-solid fa-right-from-bracket me-2"
-ICON_SETTINGS = "fa-solid fa-gear me-2"
-ICON_INFO = "fa-solid fa-circle-info"
+HIDE = {"display": "none"}
+SHOW = {"display": "block"}
 
-TABLE_TAG_UNICODE = "⬤"
+ICON_APP = "fa-solid fa-cube me-2"
+ICON_SETTINGS = "fa-solid fa-gear me-2"
+ICON_NAV = "fa-solid fa-bars me-2"

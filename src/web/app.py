@@ -11,7 +11,7 @@ from dash_breakpoints_new import WindowBreakpoints
 from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
-from .layouts import build_navbar, build_navbar_offcanvas
+from .layouts import build_global_toast, build_global_navbar, build_global_nav_offcanvas
 from .callbacks import register_callbacks_navbar
 
 
@@ -27,7 +27,6 @@ def _env_bool(name: str, default: bool = False) -> bool:
 
 _APP_NAME = os.getenv("APP_NAME", "Suite")
 _VERSION = os.getenv("APP_VERSION", "1.0")
-_LOCAL_SERVER = _env_bool("LOCAL_SERVER", default=True)
 _DEV = _env_bool("DEV", default=True)
 _CLIENT_ID = os.getenv("CLIENT_ID", "").strip()
 _CLIENT_SECRET = os.getenv("CLIENT_SECRET", "").strip()
@@ -36,10 +35,6 @@ _AUTHORITY = os.getenv("AUTHORITY", f"https://login.microsoftonline.com/{_TENANT
 _SECRET = os.getenv("SECRET", "fallback-secret")
 _SCOPE = [s.strip() for s in os.getenv("SCOPE", "User.Read").split(",") if s.strip()]
 _CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
-
-if _DEV and not _LOCAL_SERVER:
-    os.environ.pop("HTTP_PROXY", None)
-    os.environ.pop("HTTPS_PROXY", None)
 
 init_logs()
 init_db()
@@ -84,8 +79,9 @@ app.layout = html.Div([
         widthBreakpointNames=["mobile", "tablet", "desktop"],
     ),
     dcc.Location(id="app-location"),
-    build_navbar(),
-    build_navbar_offcanvas(),
+    build_global_navbar(),
+    build_global_toast(),
+    build_global_nav_offcanvas(),
     html.Div(page_container, className="app-content"),
 ])
 

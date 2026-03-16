@@ -4,15 +4,16 @@ import os
 import uuid
 
 
+from dash import ctx
 from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page
 from dash.exceptions import PreventUpdate
 
-from shared.db.users import get_user_id
-from shared.db.tasks import add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
+from shared.db import get_user_id, add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts import build_jobs_main
-from web.theme import TABLE_TAG_UNICODE
+from web.layouts.global_toast import toast_class
+from web.theme import CIRCLE_TAG, HIDE, SHOW
 
 
 _PAGE_NAME = "Jobs"
@@ -145,8 +146,12 @@ def cb_jobs_results(selected_rows, data):
 
 
 @callback(
-    Output("jobs-submit-msg", "displayed"),
-    Output("jobs-submit-msg", "message"),
+    Output("app-toast", "is_open"),
+    Output("app-toast", "header"),
+    Output("app-toast-body", "children"),
+    Output("app-toast", "className"),
+    Output("app-toast", "duration"),
+    Output("app-toast-actions", "style"),
     Output("jobs-poll", "disabled"),
     Output("jobs-current-id", "data"),
     Output("jobs-submit-inp", "value"),
@@ -162,18 +167,20 @@ def cb_jobs_submit(n_clicks, n_submit, task_name):
 
     if not n_clicks and not n_submit:
         task_id = get_next_user_task_id(user_id)
-        return no_update, no_update, False, task_id, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update, False, task_id, no_update, no_update
     
     if not task_name:
-        return True, "No task name provided! Please enter...", no_update, no_update, no_update, no_update
+        return True, "Job Submit", "No task name provided! Please enter...", toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update
     
     n_active = get_user_task_count(user_id)
     if n_active >= _MAX_USER_TASKS_ACTIVE:
-        return True, f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete...", no_update, no_update, no_update, no_update
+        message = f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete..."
+        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update
     
     n_total = get_user_task_count(user_id, statuses=None)
     if n_total >= _MAX_USER_TASKS_TOTAL:
-        return True, f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database...", no_update, no_update, no_update, no_update
+        message = f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database..."
+        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update
     
     # schedule task with celery task id (string!)
     celery_id = str(uuid.uuid4())
@@ -190,7 +197,7 @@ def cb_jobs_submit(n_clicks, n_submit, task_name):
     )
 
     task_id = get_next_user_task_id(user_id)
-    return False, no_update, False, task_id, "", []
+    return False, no_update, no_update, no_update, no_update, no_update, False, task_id, "", []
 
 
 def sync_table():
@@ -199,14 +206,14 @@ def sync_table():
     user_tasks = get_user_task_rows(
         user_id=user_id,
         include_payloads=False,
-        columns={"status", "task_name", "progress", "task_id", "created_at"},
+        columns={"status", "task_name", "version", "progress", "task_id", "created_at"},
         limit=_MAX_USER_TASKS_TOTAL,
         newest_first=True,
     )
     for i, t in enumerate(user_tasks):
         if t["status"] in {"PENDING"}:
             user_tasks[i]["status"] += f"-{get_queue_position(t['task_id'])-1}"
-        user_tasks[i]["status_icon"] = TABLE_TAG_UNICODE
+        user_tasks[i]["status_icon"] = CIRCLE_TAG
     return user_tasks
 
 
@@ -222,12 +229,15 @@ def cb_jobs_refresh():
 
 @callback(
     Output("jobs-table", "data"),
-    Output("jobs-search-msg", "displayed"),
-    Output("jobs-search-msg", "message"),
+    Output("app-toast", "is_open"),
+    Output("app-toast", "header"),
+    Output("app-toast-body", "children"),
+    Output("app-toast", "className"),
+    Output("app-toast", "duration"),
+    Output("app-toast-actions", "style"),
     Input("jobs-search-btn", "n_clicks"),
     Input("jobs-search-inp", "n_submit"),
     State("jobs-search-inp", "value"),
-    prevent_initial_call=True,
 )
 def cb_jobs_search(n_clicks, n_submit, query):
     if not n_clicks and not n_submit:
@@ -235,11 +245,11 @@ def cb_jobs_search(n_clicks, n_submit, query):
 
     rows = sync_table()
     if not query:
-        return rows, False, no_update
+        return rows, False, no_update, no_update, no_update, no_update, no_update
 
     needle = query.strip().lower()
     if not needle:
-        return rows, False, no_update
+        return rows, False, no_update, no_update, no_update, no_update, no_update
 
     def matches(row):
         for key in ("task_name", "status", "task_id", "created_at"):
@@ -252,8 +262,9 @@ def cb_jobs_search(n_clicks, n_submit, query):
 
     filtered = [row for row in rows if matches(row)]
     if not filtered:
-        return rows, True, f'No tasks found for "{query}".'
-    return filtered, False, no_update
+        message = f'No tasks found for "{query}".'
+        return rows, True, "Search", message, toast_class("warning"), 4000, HIDE
+    return filtered, False, no_update, no_update, no_update, no_update, no_update
 
 
 
@@ -277,7 +288,7 @@ def cb_jobs_poll(task_id):
         return 0, "0%", True, no_update, False, no_update
 
     status = task["status"]
-    task["status_icon"] = TABLE_TAG_UNICODE
+    task["status_icon"] = CIRCLE_TAG
 
     user_tasks = sync_table()
     if status in {"COMPLETED", "ABORTED"}:
@@ -285,6 +296,7 @@ def cb_jobs_poll(task_id):
             "task_name": task["task_name"],
             "status": status,
             "task_id": task_id,
+            "version": task.get("version"),
             "progress": task["progress"],
             "created_at": task["created_at"],
         })
@@ -311,9 +323,13 @@ def cb_jobs_next():
 
 
 @callback(
-    Output('jobs-delete-confirm', 'displayed'),
-    Output('jobs-delete-confirm', 'message'),
-    Output('jobs-todelete-id', 'data'),
+    Output("app-toast", "is_open"),
+    Output("app-toast", "header"),
+    Output("app-toast-body", "children"),
+    Output("app-toast", "className"),
+    Output("app-toast", "duration"),
+    Output("app-toast-actions", "style"),
+    Output("jobs-todelete-id", "data"),
     Trigger('jobs-delete-btn', "n_clicks"),
     State('jobs-table', 'selected_rows'),
     State('jobs-table', 'data'),
@@ -322,27 +338,36 @@ def cb_jobs_delete(selected_rows, data):
     if selected_rows is None:
         raise PreventUpdate
     if not len(selected_rows):
-        return True, "No Optimization selected!"
+        return True, "Delete", "No job selected.", toast_class("danger"), 4000, HIDE, no_update
     task_id = data[selected_rows[0]]["task_id"]
     task = get_task(task_id)
     task_name = task["task_name"]
-    return (True, f"Are you sure you want to deleted optimization \"{task_name}\" with ID {task_id}?",
-            {"task_id": task_id, "task_name": task_name})
+    message = f'Delete job "{task_name}" with ID {task_id}?'
+    return True, "Confirm Delete", message, toast_class("warning"), None, SHOW, {"task_id": task_id, "task_name": task_name}
 
 
 @callback(
-    Output("jobs-delete-msg", "displayed"),
-    Output("jobs-delete-msg", "message"),
+    Output("app-toast", "is_open"),
+    Output("app-toast", "header"),
+    Output("app-toast-body", "children"),
+    Output("app-toast", "className"),
+    Output("app-toast", "duration"),
+    Output("app-toast-actions", "style"),
     Output("jobs-poll", "disabled"),
     Output("jobs-current-id", "data"),
     Output("jobs-progress", "value"),
     Output("jobs-progress-text", "children"),
     Output("jobs-refresh-btn", "n_clicks"),  # refreshes table upon delete
-    Trigger("jobs-delete-confirm", "submit_n_clicks"),
+    Trigger("app-toast-confirm-btn", "n_clicks"),
+    Trigger("app-toast-cancel-btn", "n_clicks"),
     State("jobs-todelete-id", "data"),
     State("jobs-current-id", "data"),
+    prevent_initial_call=True,
 )
 def cb_jobs_delete_confirm(task_data, current_task_id):
+    if ctx.triggered_id == "app-toast-cancel-btn":
+        return False, no_update, no_update, no_update, no_update, HIDE, no_update, no_update, no_update, no_update, no_update
+
     if not task_data:
         raise PreventUpdate
 
@@ -361,10 +386,10 @@ def cb_jobs_delete_confirm(task_data, current_task_id):
         next_task_id = get_next_user_task_id(user_id)
 
         if next_task_id is None:
-            return True, msg, True, None, 0, "0%", 0
+            return True, "Delete", msg, toast_class("success"), 4000, HIDE, True, None, 0, "0%", 0
 
-        return True, msg, False, next_task_id, 0, "0%", 0
+        return True, "Delete", msg, toast_class("success"), 4000, HIDE, False, next_task_id, 0, "0%", 0
 
-    return True, msg, no_update, no_update, no_update, no_update, 0
+    return True, "Delete", msg, toast_class("success"), 4000, HIDE, no_update, no_update, no_update, no_update, 0
 
 

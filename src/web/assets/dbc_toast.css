@@ -1,0 +1,19 @@
+.toast-header::before {
+    font-family: "Font Awesome 6 Free";
+    font-weight: 900;
+    margin-right: 0.5rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    line-height: 1.25rem;
+    color: #fff;
+    border-radius: var(--bs-border-radius);
+}
+.toast-success .toast-header::before { content: "\f058"; background-color: var(--bs-success); }
+.toast-danger .toast-header::before { content: "\f057"; background-color: var(--bs-danger); }
+.toast-warning .toast-header::before { content: "\f071"; background-color: var(--bs-warning); }
+.toast-info .toast-header::before { content: "\f05a"; background-color: var(--bs-info); }
+.toast-primary .toast-header::before { content: "\f005"; background-color: var(--bs-primary); }
+.toast-secondary .toast-header::before { content: "\f0a1"; background-color: var(--bs-secondary); }

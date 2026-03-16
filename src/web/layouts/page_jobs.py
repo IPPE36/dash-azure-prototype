@@ -35,6 +35,7 @@ COLUMNS = [
     {"name": "STATUS", "id": "status_icon", "editable": False},
     {"name": "STATUS", "id": "status", "editable": False},
     {"name": "LABEL", "id": "task_name", "editable": True},
+    {"name": "VERSION", "id": "version", "editable": False},
     {"name": "DATE", "id": "created_at", "editable": False}
 ]
 
@@ -63,7 +64,7 @@ def build_jobs_main():
         id="jobs-settings-offcanvas",
         title=[
             html.I(className=ICON_SETTINGS),
-            "Jobs/Add Task"
+            "Jobs / Add Task"
         ],
         is_open=False,
         placement="start",
@@ -73,10 +74,6 @@ def build_jobs_main():
 
     meta = [
         offcanvas,
-        dcc.ConfirmDialog(id="jobs-submit-msg", message=""),
-        dcc.ConfirmDialog(id="jobs-search-msg", message=""),
-        dcc.ConfirmDialog(id="jobs-delete-msg", message=""),
-        dcc.ConfirmDialog(id="jobs-delete-confirm", message=""),
         dcc.Store(id="jobs-current-id", data=None),
         dcc.Store(id="jobs-finished-id", data=None),
         dcc.Store(id="jobs-todelete-id", data=None),

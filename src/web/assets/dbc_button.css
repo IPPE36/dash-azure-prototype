@@ -3,56 +3,24 @@
 .btn {
     z-index: 1;
 }
-
 .btn:focus {
     outline: 0;
     box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
 }
-
 .btn::before {
     font-family: "Font Awesome 6 Free";
     margin-right: 0.5rem;
     font-weight: 900;
 }
 
-.user-btn::before {
-    content: "\f007";
-}
-
-.submit-btn::before {
-    content: "\f061";
-}
-
-.refresh-btn::before {
-    content: "\f021";
-    margin-right: 0rem;
-}
-
-.settings-btn::before {
-    content: "\f013";
-}
-
-.history-btn::before {
-    content: "\f1da";
-}
-
-.results-btn::before {
-    content: "\f080";
-}
-
-.load-btn::before {
-    content: "\f07c";  /* folder-open */
-}
-
-.delete-btn::before {
-    content: "\f1f8";  /* trash */
-}
-
-.add-btn::before {
-    content: "\f067";  /* plus */
-}
-
-.search-btn::before {
-    content: "\f002";  /* magnifying-glass */
-    margin-right: 0rem;
-}
+.user-btn::before {content: "\f007";}
+.submit-btn::before {content: "\f061";}
+.settings-btn::before {content: "\f013";}
+.history-btn::before {content: "\f1da";}
+.results-btn::before {content: "\f080";}
+.load-btn::before {content: "\f07c";}
+.delete-btn::before {content: "\f1f8";}
+.add-btn::before {content: "\f067";}
+.search-btn::before {content: "\f002"; margin-right: 0rem;}
+.refresh-btn::before {content: "\f021"; margin-right: 0rem;}
+.logout-btn::before {content: "\f2f5";}
