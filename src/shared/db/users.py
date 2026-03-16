@@ -19,7 +19,13 @@ def auth_dev_user(username: str, password: str) -> bool:
         return check_password_hash(row.password_hash, password)
 
 
-def add_user(username: str, password_hash: str = "", role: str = "user", exists_ok: bool = True) -> None:
+def add_user(
+    username: str,
+    password_hash: str = "",
+    role: str = "user",
+    email: str | None = None,
+    exists_ok: bool = True,
+) -> None:
     if SessionLocal is None:
         return
     normalized = username.strip()
@@ -30,11 +36,15 @@ def add_user(username: str, password_hash: str = "", role: str = "user", exists_
         row = session.scalar(select(Users).where(Users.username == normalized))
         if row is not None:
             if exists_ok:
+                if email and row.email != email:
+                    row.email = email
+                    session.commit()
                 return
             raise ValueError(f"User already exists: {normalized}")
         session.add(
             Users(
                 username=normalized,
+                email=email,
                 password_hash=password_hash or "",
                 role=normalized_role,
                 is_active=True,
@@ -54,4 +64,16 @@ def get_user_id(username: str) -> int | None:
     with SessionLocal() as session:
         return session.scalar(
             select(Users.user_id).where(Users.username == normalized)
+        )
+
+
+def get_user_email(username: str) -> str | None:
+    if SessionLocal is None:
+        return None
+    normalized = username.strip()
+    if not normalized:
+        return None
+    with SessionLocal() as session:
+        return session.scalar(
+            select(Users.email).where(Users.username == normalized)
         )

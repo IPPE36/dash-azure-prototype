@@ -22,9 +22,9 @@ _BACKUP_ON_STARTUP = os.getenv("DB_BACKUP_ON_STARTUP", "true").lower() == "true"
 _BACKUP_DIR = os.getenv("DB_BACKUP_DIR", "./db_backups").strip() or "./db_backups"
 _BACKUP_MAX_AGE_HOURS = int(os.getenv("DB_BACKUP_MAX_AGE_HOURS", "168"))
 _DEFAULT_DEV_USERS = (
-    ("root", "123", "admin"),
-    ("admin", "123", "admin"),
-    ("user", "123", "user"),
+    ("root", "123", "admin", "root@local.dev"),
+    ("admin", "123", "admin", "admin@local.dev"),
+    ("user", "123", "user", "user@local.dev"),
 )
 
 logger = logging.getLogger(__name__)
@@ -63,6 +63,7 @@ class Users(Base):
     __tablename__ = "users"
     user_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     username: Mapped[str] = mapped_column(String(128))
+    email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255))
     role: Mapped[str] = mapped_column(String(32), default="user", server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -175,12 +176,13 @@ def _add_dev_users() -> None:
     if SessionLocal is None:
         return
     with SessionLocal() as session:
-        for username, password, role in _DEFAULT_DEV_USERS:
+        for username, password, role, email in _DEFAULT_DEV_USERS:
             existing = session.scalar(select(Users).where(Users.username == username))
             if existing is None:
                 session.add(
                     Users(
                         username=username,
+                        email=email,
                         password_hash=generate_password_hash(password),
                         role=role,
                         is_active=True,

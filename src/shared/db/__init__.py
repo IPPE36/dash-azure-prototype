@@ -12,7 +12,7 @@ from .tasks import (
     get_user_task_rows, 
     get_user_task_count,
 )
-from .users import add_user, auth_dev_user, get_user_id
+from .users import add_user, auth_dev_user, get_user_id, get_user_email
 
 __all__ = [
     "init_db",
@@ -28,4 +28,5 @@ __all__ = [
     "add_user",
     "auth_dev_user",
     "get_user_id",
+    "get_user_email",
 ]

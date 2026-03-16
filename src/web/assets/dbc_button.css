@@ -13,7 +13,6 @@
     font-weight: 900;
 }
 
-.user-btn::before {content: "\f007";}
 .submit-btn::before {content: "\f061";}
 .settings-btn::before {content: "\f013";}
 .history-btn::before {content: "\f1da";}
@@ -21,17 +20,23 @@
 .load-btn::before {content: "\f07c";}
 .delete-btn::before {content: "\f1f8";}
 .add-btn::before {content: "\f067";}
-.search-btn::before {content: "\f002"; margin-right: 0rem;}
-.refresh-btn::before {content: "\f021"; margin-right: 0rem;}
 .logout-btn::before {content: "\f2f5";}
+.user-initials-btn::before {content: "\f007";}
 .bounds-btn::before {content: "\f1de";}
 .target-btn::before {content: "\f140";}
 .send-btn::before {content: "\f1d8";}
-.tag-btn::before {content: "\f02b";}
+.tag-btn::before {content: "\f02b"; margin-right: 0rem;}
+.search-btn::before {content: "\f002"; margin-right: 0rem;}
+.refresh-btn::before {content: "\f021"; margin-right: 0rem;}
 
-.slider-toggle-btn {
-    border-bottom-left-radius: 0 !important;
-    border-bottom-right-radius: 0 !important;
+.user-initials-btn {
+    min-width: 44px;
+    text-align: center;
+    letter-spacing: 0.5px;
+}
+
+.btn-outline-secondary {
+    background-color: var(--bs-light) !important;
 }
 .btn-outline-secondary:hover,
 .btn-outline-secondary:focus,

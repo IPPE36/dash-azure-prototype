@@ -33,24 +33,35 @@ def build_global_navbar():
                 dbc.Nav(
                     [
                         dbc.Button(
-                            "Account",
+                            "AC",
                             id="navbar-user-btn",
                             color="primary",
                             size="md",
-                            className="user-btn border border-white",
+                            className="user-initials-btn border border-white",
                         ),
                         dbc.Popover(
                             [
                                 dbc.PopoverBody(
                                     [
+                                        html.Div(
+                                            [
+                                                html.Div(
+                                                    id="navbar-user-name",
+                                                    className="fw-semibold",
+                                                ),
+                                                html.Div(
+                                                    id="navbar-user-email",
+                                                    className="small text-muted",
+                                                ),
+                                            ],
+                                            className="mb-2",
+                                        ),
                                         dbc.Switch(
                                             id="navbar-expert-switch",
-                                            label="Expertmode",
+                                            label="Expert",
                                             value=False,
                                             className="mb-2",
                                         ),
-
-                                        html.Hr(className="my-2"),
                                         dbc.Button(
                                             "Logout",
                                             href="/logout",
@@ -59,7 +70,7 @@ def build_global_navbar():
                                             size="sm",
                                             className="logout-btn w-100",
                                         ),
-                                    ]
+                                    ],
                                 )
                             ],
                             id="navbar-user-popover",

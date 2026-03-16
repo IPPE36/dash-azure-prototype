@@ -26,8 +26,9 @@ layout = build_jobs_layout()
 
 
 clientside_callback(
-    "function(n){return n ? true : window.dash_clientside.no_update;}",
+    "function(n){return n ? [true, 'jobs-settings-tab-bounds'] : [window.dash_clientside.no_update, window.dash_clientside.no_update];}",
     Output("jobs-settings-offcanvas", "is_open"),
+    Output("jobs-settings-tabs", "active_tab"),
     Input("jobs-add-btn", "n_clicks"),
 )
 
@@ -36,11 +37,11 @@ clientside_callback(
     """
     function(widthBreakpoint) {
         if (widthBreakpoint === "mobile") {
-            return ["task_id", "status", "created_at"];
+            return ["task_id", "status", "created_at", "version"];
         } else if (widthBreakpoint === "tablet") {
-            return ["task_id", "status"];
+            return ["task_id", "status", "version"];
         } else {
-            return ["task_id"];
+            return ["task_id", "status"];
         }
     }
     """,
@@ -182,6 +183,7 @@ def cb_jobs_results(selected_rows, data):
     Output("jobs-current-id", "data"),
     Output("jobs-submit-inp", "value"),
     Output('jobs-table', 'selected_rows'),
+    Output("jobs-settings-offcanvas", "is_open"),
     Input("jobs-submit-btn", "n_clicks"),
     Input("jobs-submit-inp", "n_submit"),
     State("jobs-submit-inp", "value"),
@@ -193,20 +195,20 @@ def cb_jobs_submit(n_clicks, n_submit, task_name):
 
     if not n_clicks and not n_submit:
         task_id = get_next_user_task_id(user_id)
-        return no_update, no_update, no_update, no_update, no_update, no_update, False, task_id, no_update, no_update
+        return no_update, no_update, no_update, no_update, no_update, no_update, False, task_id, no_update, no_update, no_update
     
     if not task_name:
-        return True, "Job Submit", "No task name provided! Please enter...", toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update
+        return True, "Job Submit", "No task name provided! Please enter...", toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update, no_update
     
     n_active = get_user_task_count(user_id)
     if n_active >= _MAX_USER_TASKS_ACTIVE:
         message = f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete..."
-        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update
+        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update, no_update
     
     n_total = get_user_task_count(user_id, statuses=None)
     if n_total >= _MAX_USER_TASKS_TOTAL:
         message = f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database..."
-        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update
+        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update, no_update
     
     # schedule task with celery task id (string!)
     celery_id = str(uuid.uuid4())
@@ -223,7 +225,7 @@ def cb_jobs_submit(n_clicks, n_submit, task_name):
     )
 
     task_id = get_next_user_task_id(user_id)
-    return False, no_update, no_update, no_update, no_update, no_update, False, task_id, "", []
+    return False, no_update, no_update, no_update, no_update, no_update, False, task_id, "", [], False
 
 
 def sync_table():
@@ -372,7 +374,7 @@ def cb_jobs_delete(selected_rows, data):
     task_id = data[selected_rows[0]]["task_id"]
     task = get_task(task_id)
     task_name = task["task_name"]
-    message = f'Delete job "{task_name}" with ID {task_id}?'
+    message = f'Delete job "{task_name}"?'
     return True, "Confirm Delete", message, toast_class("warning"), None, SHOW, {"task_id": task_id, "task_name": task_name}
 
 
@@ -387,12 +389,11 @@ def cb_jobs_delete(selected_rows, data):
     Output("jobs-current-id", "data"),
     Output("jobs-progress", "value"),
     Output("jobs-progress-text", "children"),
-    Output("jobs-refresh-btn", "n_clicks"),  # refreshes table upon delete
+    Output("jobs-refresh-btn", "n_clicks"),
     Trigger("app-toast-confirm-btn", "n_clicks"),
     Trigger("app-toast-cancel-btn", "n_clicks"),
     State("jobs-todelete-id", "data"),
     State("jobs-current-id", "data"),
-    prevent_initial_call=True,
 )
 def cb_jobs_delete_confirm(task_data, current_task_id):
     if ctx.triggered_id == "app-toast-cancel-btn":
@@ -405,7 +406,7 @@ def cb_jobs_delete_confirm(task_data, current_task_id):
     label = task_data["task_name"]
 
     delete_task(task_id)
-    msg = f'Deleted Task "{label}" with ID {task_id}!'
+    msg = f'Deleted Task "{label}"!'
 
     if task_id == current_task_id:
         user_name = get_user_name()
@@ -426,6 +427,12 @@ def cb_jobs_delete_confirm(task_data, current_task_id):
 @callback(
     Output("jobs-table", "data"),
     Output("jobs-tag-inp", "value"),
+    Output("app-toast", "is_open"),
+    Output("app-toast", "header"),
+    Output("app-toast-body", "children"),
+    Output("app-toast", "className"),
+    Output("app-toast", "duration"),
+    Output("app-toast-actions", "style"),
     Input("jobs-tag-btn", "n_clicks"),
     Input("jobs-tag-inp", "n_submit"),
     State("jobs-tag-inp", "value"),
@@ -444,7 +451,28 @@ def cb_jobs_apply_tag(n_clicks, n_submit, tag_value, selected_rows, data):
         raise PreventUpdate
 
     tag = (tag_value or "").strip()
-    update_task(task_id, tag=tag or None)
-    return sync_table(), tag
+    updated = update_task(task_id, tag=tag or None)
+    if not updated:
+        return (
+            no_update,
+            no_update,
+            True,
+            "Tag",
+            "Tag update failed. Please try again.",
+            toast_class("danger"),
+            4000,
+            HIDE,
+        )
+    message = f'Tag updated to "{tag}"' if tag else "Tag cleared."
+    return (
+        sync_table(),
+        tag,
+        True,
+        "Tag",
+        message,
+        toast_class("success"),
+        3000,
+        HIDE,
+    )
 
 

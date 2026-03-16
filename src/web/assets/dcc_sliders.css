@@ -29,3 +29,6 @@
     -webkit-user-select: none;
     -ms-user-select: none;
 }
+.rc-slider-disabled .rc-slider-tooltip {
+    display: none !important;
+}

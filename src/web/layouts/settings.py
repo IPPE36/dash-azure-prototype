@@ -237,8 +237,8 @@ def build_sliders(*, row_list=None):
                                 vertical=True,
                                 verticalHeight=150,
                                 marks={
-                                    min_value: str(min_value),
-                                    max_value: str(max_value),
+                                    min_value: f"{min_value}%",
+                                    max_value: f"{max_value}%",
                                 },
                                 tooltip={
                                     "placement": "left",
@@ -249,7 +249,8 @@ def build_sliders(*, row_list=None):
                             style={"height": "150px"},
                         ),
                     ],
-                    className="p-0 border rounded bg-light h-100",
+                    className="p-0 border rounded h-100",
+                    style={"backgroundColor": "white"},
                 ),
                 xs=4,
                 sm=4,
@@ -261,6 +262,6 @@ def build_sliders(*, row_list=None):
 
     return dbc.Row(
         items,
-        className="g-2",
+        className="g-2 mt-1",
         justify="start",
     )

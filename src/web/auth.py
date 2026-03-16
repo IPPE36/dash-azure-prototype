@@ -8,7 +8,7 @@ from collections.abc import Callable
 from flask import Blueprint, request, session, current_app, has_request_context, redirect, render_template, url_for
 import msal
 
-from shared.db.users import add_user, auth_dev_user
+from shared.db.users import add_user, auth_dev_user, get_user_email as db_get_user_email
 
 
 _REDIRECT_PATH = os.getenv("REDIRECT_PATH", "/getAToken").strip()
@@ -80,6 +80,16 @@ def _extract_user_name(user: dict | None) -> str | None:
     return None
 
 
+def _extract_user_email(user: dict | None) -> str | None:
+    if not user:
+        return None
+    for key in ("email", "preferred_username", "upn", "unique_name"):
+        value = user.get(key)
+        if value:
+            return str(value)
+    return None
+
+
 def _is_authenticated() -> bool:
     if _dev_auth_enabled():
         return bool(session.get("dev_authenticated"))
@@ -94,6 +104,17 @@ def get_user_name() -> str | None:
     if not _is_authenticated():
         return None
     return session.get("user_name")
+
+
+def get_user_email() -> str | None:
+    if not has_request_context():
+        return None
+    if not _is_authenticated():
+        return None
+    user_name = session.get("user_name")
+    if not user_name:
+        return None
+    return db_get_user_email(str(user_name))
 
 
 @bp.route("/login", methods=["GET", "POST"])
@@ -137,8 +158,10 @@ def auth_response():
         )
         if "error" in result:
             return render_template("auth_error.html", result=result), 401
-        user_name = _extract_user_name(result.get("id_token_claims")) or "unknown-user"
-        add_user(user_name, password_hash="", exists_ok=True)
+        claims = result.get("id_token_claims")
+        user_name = _extract_user_name(claims) or "unknown-user"
+        user_email = _extract_user_email(claims)
+        add_user(user_name, password_hash="", email=user_email, exists_ok=True)
         session["user_name"] = user_name
         return redirect("/")
     return "Unsupported AUTH_MODE. Use 'dev', 'azure' or 'databricks'.", 500

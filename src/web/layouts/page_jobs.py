@@ -20,22 +20,6 @@ from web.layouts.settings import build_sliders
 # )
 # dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
 
-sliders = build_sliders(
-    row_list=[
-        ("Strength", 25, 0, 100, False),
-        ("Pressure", 40, 10, 80, False),
-        ("Locked value", 15, 0, 50, True),
-        ("Pressure", 40, 10, 80, False),
-        ("Pressure", 40, 10, 80, False),
-        ("Locked value", 15, 0, 50, True),
-        ("Pressure", 40, 10, 80, False),
-        ("Pressure", 40, 10, 80, False),
-        ("Locked value", 15, 0, 50, True),
-        ("Pressure", 40, 10, 80, False),
-        ("Pressure", 40, 10, 80, False),
-        ("Locked value", 15, 0, 50, True),
-    ]
-)
 
 COLUMNS = [
     {"name": "ID", "id": "task_id", "editable": False},
@@ -49,6 +33,23 @@ COLUMNS = [
 
 
 def build_jobs_layout():
+
+    sliders = build_sliders(
+        row_list=[
+            ("Strength", 25, 0, 100, False),
+            ("Pressure", 40, 10, 80, False),
+            ("Locked value", 15, 0, 50, True),
+            ("Pressure", 40, 10, 80, False),
+            ("Pressure", 40, 10, 80, False),
+            ("Locked value", 15, 0, 50, True),
+            ("Pressure", 40, 10, 80, False),
+            ("Pressure", 40, 10, 80, False),
+            ("Locked value", 15, 0, 50, True),
+            ("Pressure", 40, 10, 80, False),
+            ("Pressure", 40, 10, 80, False),
+            ("Locked value", 15, 0, 50, True),
+        ]
+    )
 
     submit = dbc.InputGroup(
         [
@@ -92,7 +93,7 @@ def build_jobs_layout():
                 ],
                 id="jobs-settings-tabs",
                 active_tab="jobs-settings-tab-bounds",
-                className="app-tabs mb-3",
+                className="app-tabs mb-4",
             ),
         ],
         id="jobs-settings-offcanvas",
@@ -133,7 +134,7 @@ def build_jobs_layout():
                         ],
                         id="jobs-tabs",
                         active_tab="jobs-tab-history",
-                        className="app-tabs mb-3",
+                        className="app-tabs mb-4",
                     ),
 
                     html.Div(
@@ -154,7 +155,6 @@ def build_jobs_layout():
                 className="position-relative",
             ),
         ],
-        className="mb-3",
     )
 
     history_section = dbc.Collapse(
@@ -189,9 +189,10 @@ def build_jobs_layout():
                                 className="search-btn",
                             ),
                         ],
+                        style={"minWidth": "220px", "maxWidth": "320px"},
                     ),
                 ],
-                className="d-flex gap-5 pt-3 pb-3",
+                className="d-flex gap-2 pt-3 pb-3",
             ),
             dbc.Collapse(
                 html.Div(
@@ -303,11 +304,11 @@ def build_jobs_layout():
                                 id="jobs-tag-inp",
                                 type="text",
                                 maxLength=32,
-                                placeholder="Tag (optional)",
+                                placeholder="Apply Tag (optional)",
                                 size="sm",
                             ),
                             dbc.Button(
-                                "Apply",
+                                "",
                                 id="jobs-tag-btn",
                                 size="sm",
                                 color="secondary",
