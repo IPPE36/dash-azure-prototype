@@ -75,6 +75,7 @@ class Tasks(Base):
     task_id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     user_id: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
     task_name: Mapped[str] = mapped_column(String(128), nullable=True, default="New Task")
+    tag: Mapped[str | None] = mapped_column(String(64), nullable=True)
     version: Mapped[str] = mapped_column(String(32), default="v1")
     status: Mapped[str] = mapped_column(String(32))
     progress: Mapped[int] = mapped_column(Integer, default=0, server_default="0")

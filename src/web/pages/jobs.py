@@ -7,7 +7,7 @@ from dash import ctx
 from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, register_page, MATCH
 from dash.exceptions import PreventUpdate
 
-from shared.db import get_user_id, add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task
+from shared.db import get_user_id, add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task, update_task
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts import build_jobs_layout
@@ -68,13 +68,14 @@ clientside_callback(
     """
     function(selected_rows) {
         if (selected_rows && selected_rows.length > 0) {
-            return [false, false];
+            return [false, false, false];
         }
-        return [true, true];
+        return [true, true, true];
     }
     """,
     Output("jobs-result-btn", "disabled"),
     Output("jobs-delete-btn", "disabled"),
+    Output("jobs-tag-btn", "disabled"),
     Input("jobs-table", "selected_rows"),
 )
 
@@ -88,6 +89,18 @@ def cb_jobs_tabs(active_tab):
     is_history = active_tab == "jobs-tab-history"
     is_results = active_tab == "jobs-tab-results"
     return is_history, is_results
+
+
+@callback(
+    Output("jobs-tag-inp", "value"),
+    Input("jobs-table", "selected_rows"),
+    State("jobs-table", "data"),
+)
+def cb_jobs_tag_prefill(selected_rows, data):
+    if not selected_rows or not data:
+        return ""
+    row = data[selected_rows[0]] or {}
+    return row.get("tag") or ""
 
 
 @callback(
@@ -219,14 +232,17 @@ def sync_table():
     user_tasks = get_user_task_rows(
         user_id=user_id,
         include_payloads=False,
-        columns={"status", "task_name", "version", "progress", "task_id", "created_at"},
+        columns={"status", "task_name", "tag", "version", "progress", "task_id", "created_at"},
         limit=_MAX_USER_TASKS_TOTAL,
         newest_first=True,
     )
     for i, t in enumerate(user_tasks):
         if t["status"] in {"PENDING"}:
             user_tasks[i]["status"] += f"-{get_queue_position(t['task_id'])-1}"
+        if not t["version"].lower().startswith("v"):
+            user_tasks[i]["version"] = f"v{user_tasks[i]['version']}"
         user_tasks[i]["status_icon"] = CIRCLE_TAG
+
     return user_tasks
 
 
@@ -265,7 +281,7 @@ def cb_jobs_search(n_clicks, n_submit, query):
         return rows, False, no_update, no_update, no_update, no_update, no_update
 
     def matches(row):
-        for key in ("task_name", "status", "task_id", "created_at"):
+        for key in ("task_name", "tag", "status", "task_id", "created_at"):
             value = row.get(key)
             if value is None:
                 continue
@@ -307,6 +323,7 @@ def cb_jobs_poll(task_id):
     if status in {"COMPLETED", "ABORTED"}:
         user_tasks.append({
             "task_name": task["task_name"],
+            "tag": task.get("tag"),
             "status": status,
             "task_id": task_id,
             "version": task.get("version"),
@@ -404,5 +421,30 @@ def cb_jobs_delete_confirm(task_data, current_task_id):
         return True, "Delete", msg, toast_class("success"), 4000, HIDE, False, next_task_id, 0, "0%", 0
 
     return True, "Delete", msg, toast_class("success"), 4000, HIDE, no_update, no_update, no_update, no_update, 0
+
+
+@callback(
+    Output("jobs-table", "data"),
+    Output("jobs-tag-inp", "value"),
+    Input("jobs-tag-btn", "n_clicks"),
+    Input("jobs-tag-inp", "n_submit"),
+    State("jobs-tag-inp", "value"),
+    State("jobs-table", "selected_rows"),
+    State("jobs-table", "data"),
+)
+def cb_jobs_apply_tag(n_clicks, n_submit, tag_value, selected_rows, data):
+    if not n_clicks and not n_submit:
+        raise PreventUpdate
+    if not selected_rows or not data:
+        raise PreventUpdate
+
+    row = data[selected_rows[0]] or {}
+    task_id = row.get("task_id")
+    if task_id is None:
+        raise PreventUpdate
+
+    tag = (tag_value or "").strip()
+    update_task(task_id, tag=tag or None)
+    return sync_table(), tag
 
 

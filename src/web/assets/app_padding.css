@@ -5,10 +5,6 @@
     padding-inline: 0;
 }
 
-.app-content {
-    background-color: var(--bs-light);
-}
-
 @media (min-width: 768px) {
     .app-content,
     .navbar-inner {

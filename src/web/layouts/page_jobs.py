@@ -42,8 +42,9 @@ COLUMNS = [
     {"name": "STATUS", "id": "status_icon", "editable": False},
     {"name": "STATUS", "id": "status", "editable": False},
     {"name": "LABEL", "id": "task_name", "editable": True},
+    {"name": "TAG", "id": "tag", "editable": False},
+    {"name": "DATE", "id": "created_at", "editable": False},
     {"name": "VERSION", "id": "version", "editable": False},
-    {"name": "DATE", "id": "created_at", "editable": False}
 ]
 
 
@@ -281,7 +282,7 @@ def build_jobs_layout():
                         style={"display": "none"}
                     ),
                     dbc.Button(
-                        "Load Results",
+                        "Results",
                         id="jobs-result-btn",
                         size="sm",
                         color="secondary",
@@ -295,6 +296,26 @@ def build_jobs_layout():
                         color="secondary",
                         disabled=True,
                         className="delete-btn",
+                    ),
+                    dbc.InputGroup(
+                        [
+                            dbc.Input(
+                                id="jobs-tag-inp",
+                                type="text",
+                                maxLength=32,
+                                placeholder="Tag (optional)",
+                                size="sm",
+                            ),
+                            dbc.Button(
+                                "Apply",
+                                id="jobs-tag-btn",
+                                size="sm",
+                                color="secondary",
+                                className="tag-btn",
+                                disabled=True,
+                            ),
+                        ],
+                        style={"minWidth": "220px", "maxWidth": "320px"},
                     ),
                 ],
                 className="d-flex gap-2 mt-1",

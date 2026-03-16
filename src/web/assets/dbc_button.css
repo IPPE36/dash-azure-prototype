@@ -27,6 +27,7 @@
 .bounds-btn::before {content: "\f1de";}
 .target-btn::before {content: "\f140";}
 .send-btn::before {content: "\f1d8";}
+.tag-btn::before {content: "\f02b";}
 
 .slider-toggle-btn {
     border-bottom-left-radius: 0 !important;
