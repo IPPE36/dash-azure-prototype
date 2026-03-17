@@ -8,7 +8,7 @@ from dash_extensions.enrich import Input, State, Output, Trigger, no_update, cal
 from dash.exceptions import PreventUpdate
 
 from shared.db import get_user_id, add_task, get_queue_position, get_user_task_count, get_user_task_rows, get_next_user_task_id, delete_task, get_task, update_task
-from shared.celery_tasks import long_task
+from shared.celery_tasks import long_task, short_task
 from web.auth import get_user_name
 from web.callbacks import toast_payload
 from web.theme import CIRCLE_TAG
@@ -240,11 +240,18 @@ def register_callbacks_jobs():
             task_name=task_name,
             input_payload={"x": payload},
         )
-        long_task.apply_async(
-            args=[payload],
-            kwargs={"task_id": task_id},
-            task_id=celery_id,
-        )
+        if task_name.lower().startswith("short:"):
+            short_task.apply_async(
+                args=[payload],
+                kwargs={"task_id": task_id},
+                task_id=celery_id,
+            )
+        else:
+            long_task.apply_async(
+                args=[payload],
+                kwargs={"task_id": task_id},
+                task_id=celery_id,
+            )
 
         task_id = get_next_user_task_id(user_id)
         message = f'Submit successful for task "{task_name}".'

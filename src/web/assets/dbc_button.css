@@ -29,12 +29,6 @@
 .search-btn::before {content: "\f002"; margin-right: 0rem;}
 .refresh-btn::before {content: "\f021"; margin-right: 0rem;}
 
-.user-initials-btn {
-    min-width: 44px;
-    text-align: center;
-    letter-spacing: 0.5px;
-}
-
 .btn-outline-secondary {
     background-color: lightgrey !important;
 }

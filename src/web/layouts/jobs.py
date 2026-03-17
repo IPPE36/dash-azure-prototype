@@ -4,21 +4,8 @@
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html, dcc, dash_table
 
-from web.theme import TRANSPARENT, ICON_SETTINGS
-from web.layouts.settings import build_sliders
-
-
-
-# settings_children = build_settings_input_list(
-#     row_list=[
-#         ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
-#         ("main", "Cost2", 80.0, None, False, False, 0, 1000, True),
-#         ("main", "Cost3", 80.0, None, False, False, 0, 1000, True),
-#         ("main", "Cost4", 80.0, None, False, False, 0, 1000, True),
-#         ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
-#     ]
-# )
-# dd = build_settings_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
+from web.theme import ICON_SETTINGS
+from web.layouts.settings import build_sliders, build_input_list, build_dropdown
 
 
 COLUMNS = [
@@ -33,6 +20,17 @@ COLUMNS = [
 
 
 def build_jobs_layout():
+
+    inputs = build_input_list(
+        row_list=[
+            ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
+            ("main", "Cost2", 80.0, None, False, False, 0, 1000, True),
+            ("main", "Cost3", 80.0, None, False, False, 0, 1000, True),
+            ("main", "Cost4", 80.0, None, False, False, 0, 1000, True),
+            ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
+        ]
+    )
+    # dd = build_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
 
     sliders = build_sliders(
         row_list=[
@@ -79,7 +77,7 @@ def build_jobs_layout():
             dbc.Tab(
                 label="Objectives",
                 tab_id="jobs-settings-tab-objectives",
-                children=[],
+                children=[inputs],
                 label_class_name="target-btn",
             ),
             dbc.Tab(
@@ -204,9 +202,12 @@ def build_jobs_layout():
         row_selectable="single",
         style_as_list_view=True,
         page_size=10,
-        style_header={"display": "none"},
+        style_header={
+            "fontWeight": "bold",
+            "textAlign": "left",
+            "fontFamily": "inherit",
+        },
         style_cell={
-            "backgroundColor": TRANSPARENT,
             "textAlign": "left",
             "fontFamily": "inherit",
         },
@@ -296,7 +297,7 @@ def build_jobs_layout():
             ),
             tag_input,
         ],
-        className="gap-2 mt-1",
+        className="gap-2 mt-3",
         id="jobs-actions-group",
     )
 

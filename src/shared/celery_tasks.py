@@ -60,3 +60,38 @@ def long_task(self, x: int, *, task_id: int) -> None:
         )
         logger.exception("long_task failed", extra=log_ctx)
         raise
+
+
+@celery_app.task(name="short_task", bind=True)
+def short_task(self, x: int, *, task_id: int) -> None:
+    log_ctx = {"task_id": self.request.id, "task_name": self.name}
+    logger.info("short_task started", extra=log_ctx)
+
+    current_task = get_task(task_id)
+    if current_task is None:
+        return None
+
+    update_task(task_id, status="RUNNING")
+
+    try:
+        # Simulate quick work without the heavy model runtime.
+        result = x + 1
+        time.sleep(1)
+
+        update_task(
+            task_id,
+            status="COMPLETED",
+            progress=100,
+            output_payload=[{"result": result}],
+        )
+        logger.info("short_task completed", extra=log_ctx)
+        return result
+
+    except Exception as e:
+        update_task(
+            task_id=task_id,
+            status="ABORTED",
+            error_payload={"error": str(e), "type": e.__class__.__name__},
+        )
+        logger.exception("short_task failed", extra=log_ctx)
+        raise

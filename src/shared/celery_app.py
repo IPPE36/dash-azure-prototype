@@ -5,6 +5,7 @@ import logging
 
 from celery import Celery
 from celery.signals import worker_process_init
+from kombu import Queue
 
 
 _BROKER_URL = os.getenv("CELERY_BROKER_URL")
@@ -45,6 +46,15 @@ celery_app.conf.update(
     worker_max_tasks_per_child=200,  # helps with leaks/stability
     worker_send_task_events=False,
     task_send_sent_event=False,
+    task_default_queue="default",
+    task_queues=[
+        Queue("default"),
+        Queue("background"),
+    ],
+    task_routes={
+        "long_task": {"queue": "background"},
+        "short_task": {"queue": "default"},
+    },
 )
 
 @worker_process_init.connect
