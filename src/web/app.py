@@ -12,7 +12,7 @@ from shared.db import init_db
 from shared.logs import init_logs
 from .auth import bp as auth_bp, request_guard
 from .layouts import build_global_toast, build_global_navbar, build_global_nav_offcanvas
-from .callbacks import register_callbacks_navbar
+from .callbacks import register_callbacks_navbar, register_callbacks_toast
 
 
 def _env_str(name: str, default: str = "") -> str:
@@ -79,6 +79,7 @@ app.layout = html.Div([
         widthBreakpointNames=["mobile", "tablet", "desktop"],
     ),
     dcc.Location(id="app-location"),
+    dcc.Store(id="toast-store"),
     build_global_navbar(),
     build_global_toast(),
     build_global_nav_offcanvas(),
@@ -86,3 +87,5 @@ app.layout = html.Div([
 ])
 
 register_callbacks_navbar()
+register_callbacks_toast()
+

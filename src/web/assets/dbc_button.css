@@ -36,12 +36,12 @@
 }
 
 .btn-outline-secondary {
-    background-color: var(--bs-light) !important;
+    background-color: lightgrey !important;
 }
 .btn-outline-secondary:hover,
 .btn-outline-secondary:focus,
 .btn-outline-secondary:active {
-    background-color: transparent !important;
+    background-color: lightgrey !important;
     box-shadow: none !important;
     color: var(--bs-secondary);
 }

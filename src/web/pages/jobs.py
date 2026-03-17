@@ -11,8 +11,8 @@ from shared.db import get_user_id, add_task, get_queue_position, get_user_task_c
 from shared.celery_tasks import long_task
 from web.auth import get_user_name
 from web.layouts import build_jobs_layout
-from web.layouts.global_toast import toast_class
-from web.theme import CIRCLE_TAG, HIDE, SHOW
+from web.callbacks import toast_close_payload, toast_payload
+from web.theme import CIRCLE_TAG
 
 
 _PAGE_NAME = "Jobs"
@@ -168,17 +168,11 @@ def cb_jobs_results(selected_rows, data):
             },
         },
     }
-
     return figure, "jobs-tab-results"
 
 
 @callback(
-    Output("app-toast", "is_open"),
-    Output("app-toast", "header"),
-    Output("app-toast-body", "children"),
-    Output("app-toast", "className"),
-    Output("app-toast", "duration"),
-    Output("app-toast-actions", "style"),
+    Output("toast-store", "data"),
     Output("jobs-poll", "disabled"),
     Output("jobs-current-id", "data"),
     Output("jobs-submit-inp", "value"),
@@ -195,20 +189,41 @@ def cb_jobs_submit(n_clicks, n_submit, task_name):
 
     if not n_clicks and not n_submit:
         task_id = get_next_user_task_id(user_id)
-        return no_update, no_update, no_update, no_update, no_update, no_update, False, task_id, no_update, no_update, no_update
+        return no_update, False, task_id, no_update, no_update, no_update
     
     if not task_name:
-        return True, "Job Submit", "No task name provided! Please enter...", toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update, no_update
+        return (
+            toast_payload("Job Submit", "No task name provided! Please enter...", kind="danger"),
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+        )
     
     n_active = get_user_task_count(user_id)
     if n_active >= _MAX_USER_TASKS_ACTIVE:
         message = f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete..."
-        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update, no_update
+        return (
+            toast_payload("Job Submit", message, kind="danger"),
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+        )
     
     n_total = get_user_task_count(user_id, statuses=None)
     if n_total >= _MAX_USER_TASKS_TOTAL:
         message = f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database..."
-        return True, "Job Submit", message, toast_class("danger"), 4000, HIDE, no_update, no_update, no_update, no_update, no_update
+        return (
+            toast_payload("Job Submit", message, kind="danger"),
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+            no_update,
+        )
     
     # schedule task with celery task id (string!)
     celery_id = str(uuid.uuid4())
@@ -225,7 +240,8 @@ def cb_jobs_submit(n_clicks, n_submit, task_name):
     )
 
     task_id = get_next_user_task_id(user_id)
-    return False, no_update, no_update, no_update, no_update, no_update, False, task_id, "", [], False
+    message = f'Submit successful for task "{task_name}".'
+    return toast_payload("Job Submit", message, kind="success"), False, task_id, "", [], False
 
 
 def sync_table():
@@ -260,12 +276,7 @@ def cb_jobs_refresh():
 
 @callback(
     Output("jobs-table", "data"),
-    Output("app-toast", "is_open"),
-    Output("app-toast", "header"),
-    Output("app-toast-body", "children"),
-    Output("app-toast", "className"),
-    Output("app-toast", "duration"),
-    Output("app-toast-actions", "style"),
+    Output("toast-store", "data"),
     Input("jobs-search-btn", "n_clicks"),
     Input("jobs-search-inp", "n_submit"),
     State("jobs-search-inp", "value"),
@@ -276,11 +287,11 @@ def cb_jobs_search(n_clicks, n_submit, query):
 
     rows = sync_table()
     if not query:
-        return rows, False, no_update, no_update, no_update, no_update, no_update
+        return rows, toast_close_payload()
 
     needle = query.strip().lower()
     if not needle:
-        return rows, False, no_update, no_update, no_update, no_update, no_update
+        return rows, toast_close_payload()
 
     def matches(row):
         for key in ("task_name", "tag", "status", "task_id", "created_at"):
@@ -294,8 +305,8 @@ def cb_jobs_search(n_clicks, n_submit, query):
     filtered = [row for row in rows if matches(row)]
     if not filtered:
         message = f'No tasks found for "{query}".'
-        return rows, True, "Search", message, toast_class("warning"), 4000, HIDE
-    return filtered, False, no_update, no_update, no_update, no_update, no_update
+        return rows, toast_payload("Search", message, kind="warning")
+    return filtered, toast_close_payload()
 
 
 
@@ -355,12 +366,7 @@ def cb_jobs_next():
 
 
 @callback(
-    Output("app-toast", "is_open"),
-    Output("app-toast", "header"),
-    Output("app-toast-body", "children"),
-    Output("app-toast", "className"),
-    Output("app-toast", "duration"),
-    Output("app-toast-actions", "style"),
+    Output("toast-store", "data"),
     Output("jobs-todelete-id", "data"),
     Trigger('jobs-delete-btn', "n_clicks"),
     State('jobs-table', 'selected_rows'),
@@ -370,34 +376,48 @@ def cb_jobs_delete(selected_rows, data):
     if selected_rows is None:
         raise PreventUpdate
     if not len(selected_rows):
-        return True, "Delete", "No job selected.", toast_class("danger"), 4000, HIDE, no_update
+        return toast_payload("Delete", "No job selected.", kind="danger"), no_update
     task_id = data[selected_rows[0]]["task_id"]
     task = get_task(task_id)
     task_name = task["task_name"]
     message = f'Delete job "{task_name}"?'
-    return True, "Confirm Delete", message, toast_class("warning"), None, SHOW, {"task_id": task_id, "task_name": task_name}
+    return (
+        toast_payload(
+            "Confirm Delete",
+            message,
+            kind="warning",
+            duration=None,
+            confirm_required=True,
+            confirm_id="jobs-delete-confirm-btn",
+            confirm_label="Delete",
+            confirm_color="danger",
+        ),
+        {"task_id": task_id, "task_name": task_name},
+    )
 
 
 @callback(
-    Output("app-toast", "is_open"),
-    Output("app-toast", "header"),
-    Output("app-toast-body", "children"),
-    Output("app-toast", "className"),
-    Output("app-toast", "duration"),
-    Output("app-toast-actions", "style"),
+    Output("toast-store", "data"),
     Output("jobs-poll", "disabled"),
     Output("jobs-current-id", "data"),
     Output("jobs-progress", "value"),
     Output("jobs-progress-text", "children"),
     Output("jobs-refresh-btn", "n_clicks"),
-    Trigger("app-toast-confirm-btn", "n_clicks"),
-    Trigger("app-toast-cancel-btn", "n_clicks"),
+    Input("app-toast-cancel-btn", "n_clicks"),
+    Input("jobs-delete-confirm-btn", "n_clicks"),
     State("jobs-todelete-id", "data"),
     State("jobs-current-id", "data"),
+    prevent_initial_call=True,
 )
-def cb_jobs_delete_confirm(task_data, current_task_id):
+def cb_jobs_delete_confirm(n1, n2, task_data, current_task_id):
+    if not n1 and not n2:
+        raise PreventUpdate
+
     if ctx.triggered_id == "app-toast-cancel-btn":
-        return False, no_update, no_update, no_update, no_update, HIDE, no_update, no_update, no_update, no_update, no_update
+        return toast_close_payload(), no_update, no_update, no_update, no_update, no_update
+
+    if ctx.triggered_id != "jobs-delete-confirm-btn":
+        raise PreventUpdate
 
     if not task_data:
         raise PreventUpdate
@@ -417,22 +437,31 @@ def cb_jobs_delete_confirm(task_data, current_task_id):
         next_task_id = get_next_user_task_id(user_id)
 
         if next_task_id is None:
-            return True, "Delete", msg, toast_class("success"), 4000, HIDE, True, None, 0, "0%", 0
+            return (
+                toast_payload("Delete", msg, kind="success"),
+                True,
+                None,
+                0,
+                "0%",
+                0,
+            )
 
-        return True, "Delete", msg, toast_class("success"), 4000, HIDE, False, next_task_id, 0, "0%", 0
+        return (
+            toast_payload("Delete", msg, kind="success"),
+            False,
+            next_task_id,
+            0,
+            "0%",
+            0,
+        )
 
-    return True, "Delete", msg, toast_class("success"), 4000, HIDE, no_update, no_update, no_update, no_update, 0
+    return toast_payload("Delete", msg, kind="success"), no_update, no_update, no_update, no_update, 0
 
 
 @callback(
     Output("jobs-table", "data"),
     Output("jobs-tag-inp", "value"),
-    Output("app-toast", "is_open"),
-    Output("app-toast", "header"),
-    Output("app-toast-body", "children"),
-    Output("app-toast", "className"),
-    Output("app-toast", "duration"),
-    Output("app-toast-actions", "style"),
+    Output("toast-store", "data"),
     Input("jobs-tag-btn", "n_clicks"),
     Input("jobs-tag-inp", "n_submit"),
     State("jobs-tag-inp", "value"),
@@ -451,28 +480,19 @@ def cb_jobs_apply_tag(n_clicks, n_submit, tag_value, selected_rows, data):
         raise PreventUpdate
 
     tag = (tag_value or "").strip()
+    task_name = row.get("task_name")
     updated = update_task(task_id, tag=tag or None)
     if not updated:
         return (
             no_update,
             no_update,
-            True,
-            "Tag",
-            "Tag update failed. Please try again.",
-            toast_class("danger"),
-            4000,
-            HIDE,
+            toast_payload("Tag", "Tag update failed. Please try again.", kind="danger"),
         )
-    message = f'Tag updated to "{tag}"' if tag else "Tag cleared."
+    message = f'Applied tag "{tag}" to task "{task_name}".' if tag else f'Tag cleared for task "{task_name}".'
     return (
         sync_table(),
         tag,
-        True,
-        "Tag",
-        message,
-        toast_class("success"),
-        3000,
-        HIDE,
+        toast_payload("Tag", message, kind="success", duration=3000),
     )
 
 
