@@ -3,7 +3,6 @@
 import os
 import uuid
 
-from dash import ctx
 from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, MATCH
 from dash.exceptions import PreventUpdate
 
@@ -407,20 +406,13 @@ def register_callbacks_jobs():
         Output("jobs-progress", "value"),
         Output("jobs-progress-text", "children"),
         Output("jobs-refresh-btn", "n_clicks"),
-        Input("app-toast-cancel-btn", "n_clicks"),
         Input("jobs-delete-confirm-btn", "n_clicks"),
         State("jobs-todelete-id", "data"),
         State("jobs-current-id", "data"),
         prevent_initial_call=True,
     )
-    def cb_jobs_delete_confirm(n1, n2, task_data, current_task_id):
-        if not n1 and not n2:
-            raise PreventUpdate
-
-        if ctx.triggered_id == "app-toast-cancel-btn":
-            return no_update, no_update, no_update, no_update, no_update, no_update
-
-        if ctx.triggered_id != "jobs-delete-confirm-btn":
+    def cb_jobs_delete_confirm(n_clicks, task_data, current_task_id):
+        if not n_clicks:
             raise PreventUpdate
 
         if not task_data:

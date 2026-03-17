@@ -5,6 +5,7 @@ from dash_extensions.enrich import html
 
 
 def build_global_toast():
+
     return dbc.Toast(
         id="app-toast",
         header="",
@@ -15,7 +16,9 @@ def build_global_toast():
         style={"zIndex": 2000, "minWidth": "320px", "backgroundColor": "white"},
         children=html.Div(
             [
-                html.Div(id="app-toast-body", className="mb-2"),
+                html.Div(
+                    id="app-toast-body", className="mb-2"
+                ),
                 html.Div(
                     id="app-toast-actions",
                     style={"display": "none"},

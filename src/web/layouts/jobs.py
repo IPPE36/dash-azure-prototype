@@ -297,7 +297,7 @@ def build_jobs_layout():
             ),
             tag_input,
         ],
-        className="gap-2 mt-3",
+        className="gap-2 my-3",
         id="jobs-actions-group",
     )
 

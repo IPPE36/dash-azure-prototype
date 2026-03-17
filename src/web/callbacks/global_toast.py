@@ -1,6 +1,6 @@
 # src/web/callbacks/global_toast.py
 
-from dash_extensions.enrich import Input, Output, clientside_callback
+from dash_extensions.enrich import Input, Output, clientside_callback, callback, no_update
 
 
 def toast_payload(
@@ -104,3 +104,16 @@ def register_callbacks_toast():
         Input("toast-store", "data"),
     )
 
+    clientside_callback(
+        """
+        function(n_clicks) {
+            if (!n_clicks) {
+                return window.dash_clientside.no_update;
+            }
+            return false;
+        }
+        """,
+        Output("app-toast", "is_open", allow_duplicate=True),
+        Input("app-toast-cancel-btn", "n_clicks"),
+        prevent_initial_call=True,
+    )
