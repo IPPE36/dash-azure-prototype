@@ -1,11 +1,12 @@
 # src/web/callbacks/__init__.py
 
 from .global_navbar import register_callbacks_navbar
-from .global_toast import register_callbacks_toast, toast_close_payload, toast_payload
+from .global_toast import register_callbacks_toast, toast_payload
+from .jobs import register_callbacks_jobs
 
 __all__ = [
     "register_callbacks_navbar",
     "register_callbacks_toast",
-    "toast_close_payload",
     "toast_payload",
+    "register_callbacks_jobs",
 ]

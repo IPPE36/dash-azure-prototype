@@ -2,7 +2,7 @@
 
 from .global_toast import build_global_toast
 from .global_navbar import build_global_navbar, build_global_nav_offcanvas
-from .page_jobs import build_jobs_layout
+from .jobs import build_jobs_layout
 from .settings import build_input_list, build_dropdown, build_sliders
 
 __all__ = [

@@ -93,13 +93,25 @@ def build_global_navbar():
 
 
 def build_global_nav_offcanvas():
+    nav_links = [
+        dbc.NavLink(
+            "Home",
+            href="/",
+            active="exact",
+            id={"type": "nav-offcanvas-link", "page": "home"},
+        ),
+        dbc.NavLink(
+            "Jobs",
+            href="/jobs",
+            active="exact",
+            id={"type": "nav-offcanvas-link", "page": "jobs"},
+        ),
+    ]
+
     return dbc.Offcanvas(
         [
             dbc.Nav(
-                [
-                    dbc.NavLink("Home", href="/", active="exact"),
-                    dbc.NavLink("Jobs", href="/jobs", active="exact"),
-                ],
+                nav_links,
                 vertical=True,
                 pills=True,
             ),
@@ -111,5 +123,5 @@ def build_global_nav_offcanvas():
         ],
         is_open=False,
         placement="start",
-        className="bg-light"
+        className="bg-light ps-2 py-1"
     )

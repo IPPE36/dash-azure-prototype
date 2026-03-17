@@ -2,7 +2,7 @@
 
 import re
 
-from dash_extensions.enrich import callback, clientside_callback, Input, Output, State, page_registry
+from dash_extensions.enrich import callback, clientside_callback, Input, Output, State, page_registry, ALL
 
 from web.auth import get_user_name, get_user_email
 
@@ -54,5 +54,26 @@ def register_callbacks_navbar() -> None:
         """,
         Output("nav-offcanvas", "is_open"),
         Input("open-nav-offcanvas", "n_clicks"),
+        State("nav-offcanvas", "is_open"),
+    )
+
+    clientside_callback(
+        """
+        function(linkClicks, is_open) {
+            if (!is_open) {
+                return window.dash_clientside.no_update;
+            }
+            if (!linkClicks || !linkClicks.length) {
+                return window.dash_clientside.no_update;
+            }
+            const clicked = linkClicks.some(function(n) { return n; });
+            if (!clicked) {
+                return window.dash_clientside.no_update;
+            }
+            return false;
+        }
+        """,
+        Output("nav-offcanvas", "is_open"),
+        Input({"type": "nav-offcanvas-link", "page": ALL}, "n_clicks"),
         State("nav-offcanvas", "is_open"),
     )
