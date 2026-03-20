@@ -1,12 +1,9 @@
+-r base.txt
 dash==2.14.2
 dash-extensions==0.1.13
 dash-bootstrap-components
 dash-breakpoints-new
-gunicorn
-celery
-redis
-SQLAlchemy
-psycopg[binary]
-identity[flask]
 Flask-Session
+gunicorn
+identity[flask]
 msal

@@ -6,8 +6,9 @@ RUN apt-get update \
     && apt-get install -y --no-install-recommends postgresql-client \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+ARG REQUIREMENTS=requirements/web.txt
+COPY requirements/ ./requirements/
+RUN pip install --no-cache-dir -r $REQUIREMENTS
 
 # run app processes as non-root (Celery warns when started as root)
 RUN addgroup --system app && adduser --system --ingroup app app

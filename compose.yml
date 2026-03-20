@@ -1,6 +1,9 @@
 services:
   web:
-    build: .
+    build:
+      context: .
+      args:
+        REQUIREMENTS: requirements/web.txt
     env_file:
       - ${APP_ENV_FILE:-.env}
     volumes:
@@ -14,7 +17,10 @@ services:
         condition: service_started
 
   worker-default:
-    build: .
+    build:
+      context: .
+      args:
+        REQUIREMENTS: requirements/worker.txt
     command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "default", "--concurrency=1", "-n", "default@%h"]
     env_file:
       - ${APP_ENV_FILE:-.env}
@@ -27,7 +33,10 @@ services:
         condition: service_started
 
   worker-long:
-    build: .
+    build:
+      context: .
+      args:
+        REQUIREMENTS: requirements/worker.txt
     command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "background", "--concurrency=1", "-n", "long@%h"]
     env_file:
       - ${APP_ENV_FILE:-.env}
