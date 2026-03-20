@@ -35,6 +35,7 @@ ensure_provider "Microsoft.App"
 ensure_provider "Microsoft.Cache"
 ensure_provider "Microsoft.DBforPostgreSQL"
 ensure_provider "Microsoft.OperationalInsights"
+ensure_provider "Microsoft.ContainerRegistry"
 
 # --- Add extensions ---
 az extension add --name containerapp --upgrade --allow-preview true
@@ -162,12 +163,9 @@ az acr build -r "$ACR_NAME" -t "$WEB_IMAGE" --build-arg REQUIREMENTS=requirement
 az acr build -r "$ACR_NAME" -t "$WORKER_IMAGE" --build-arg REQUIREMENTS=requirements/worker.txt .
 
 # ---- Container Apps (web + workers) ----
-# Secrets are stored in Container Apps, and env vars can reference them with secretref:
-APP_WEB="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-web"
-APP_WORKER_DEFAULT="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-default"
-APP_WORKER_BACKGROUND="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-long"
-
-# env variables
+APP_WEB_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-web"
+APP_WORKER_DEFAULT_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-default"
+APP_WORKER_BACKGROUND_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-long"
 APP_SECRET="pifSKhaKhzNAClyb172Y"  # "$(openssl rand -base64 24 | tr -d '=+/' | cut -c1-20)"
 CELERY_REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0"
 CELERY_BROKER_URL="$CELERY_REDIS_URL"
@@ -178,7 +176,7 @@ SCOPE="openid,profile"
 
 # Web (public)
 az containerapp create \
-  --name "$APP_WEB" \
+  --name "$APP_WEB_NAME" \
   --resource-group "$RG" \
   --environment "$CONTAINER_ENV" \
   --image "$ACR_NAME.azurecr.io/$WEB_IMAGE" \
@@ -208,7 +206,7 @@ az containerapp create \
 
 # worker-default
 az containerapp create \
-  --name "$APP_WORKER_DEFAULT" \
+  --name "$APP_WORKER_DEFAULT_NAME" \
   --resource-group "$RG" \
   --environment "$CONTAINER_ENV" \
   --image "$ACR_NAME.azurecr.io/$WORKER_IMAGE" \
@@ -227,7 +225,7 @@ az containerapp create \
     CELERY_BROKER_URL=secretref:redis-url \
     CELERY_RESULT_BACKEND=secretref:redis-url
 
-# worker-long
+# worker-backround
 az containerapp create \
   --name "$APP_WORKER_BACKGROUND" \
   --resource-group "$RG" \
