@@ -11,10 +11,21 @@ import msal
 from shared.db.users import add_user, auth_dev_user, get_user_email as db_get_user_email
 
 
-_REDIRECT_PATH = os.getenv("REDIRECT_PATH", "/getAToken").strip()
+_DEFAULT_REDIRECT_PATH = "/getAToken"
 _PUBLIC_PATH_PREFIXES = ("/login", "/logout", "/logoffCompleted", "/assets/", "/_dash-", "/_favicon.ico", "/static/")
 
 bp = Blueprint("auth", __name__, url_prefix="")
+
+
+def _redirect_uri() -> str:
+    configured = current_app.config.get("REDIRECT_URI")
+    if configured:
+        return str(configured).strip()
+    return url_for("auth.auth_response", _external=True)
+
+
+def _redirect_path() -> str:
+    return str(current_app.config.get("REDIRECT_PATH", _DEFAULT_REDIRECT_PATH)).strip()
 
 
 def _auth_mode() -> str:
@@ -51,6 +62,7 @@ def _get_scope() -> list[str]:
         return [str(s) for s in scope if str(s).strip()]
     if isinstance(scope, str) and scope.strip():
         return [s.strip() for s in scope.split(",") if s.strip()]
+    return []
 
 
 def _build_msal_app(cache: msal.SerializableTokenCache | None = None) -> msal.ConfidentialClientApplication:
@@ -66,7 +78,7 @@ def _build_auth_url() -> str:
     return _build_msal_app().get_authorization_request_url(
         _get_scope(),
         state=str(uuid.uuid4()),
-        redirect_uri=url_for("auth.auth_response", _external=True),
+        redirect_uri=_redirect_uri(),
     )
 
 
@@ -142,7 +154,7 @@ def login():
     return "Unsupported AUTH_MODE. Use 'dev', 'azure' or 'databricks'.", 500
 
 
-@bp.route(_REDIRECT_PATH)
+@bp.route(_DEFAULT_REDIRECT_PATH)
 def auth_response():
     if _oidc_auth_enabled():
         if not _is_configured():
@@ -154,7 +166,7 @@ def auth_response():
         result = _build_msal_app(cache=cache).acquire_token_by_authorization_code(
             code,
             scopes=_get_scope(),
-            redirect_uri=url_for("auth.auth_response", _external=True),
+            redirect_uri=_redirect_uri(),
         )
         if "error" in result:
             return render_template("auth_error.html", result=result), 401

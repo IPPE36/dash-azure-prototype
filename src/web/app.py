@@ -4,6 +4,7 @@ import os
 import redis
 
 from flask_session import Session
+from werkzeug.middleware.proxy_fix import ProxyFix
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 from dash_breakpoints_new import WindowBreakpoints
@@ -33,7 +34,9 @@ _CLIENT_SECRET = os.getenv("CLIENT_SECRET", "").strip()
 _TENANT_ID = os.getenv("TENANT_ID", "common").strip()
 _AUTHORITY = os.getenv("AUTHORITY", f"https://login.microsoftonline.com/{_TENANT_ID}").strip()
 _SECRET = os.getenv("SECRET", "fallback-secret")
-_SCOPE = [s.strip() for s in os.getenv("SCOPE", "User.Read").split(",") if s.strip()]
+_SCOPE = [s.strip() for s in os.getenv("SCOPE", "").split(",") if s.strip()]
+_REDIRECT_PATH = os.getenv("REDIRECT_PATH", "/getAToken").strip()
+_REDIRECT_URI = os.getenv("REDIRECT_URI", "").strip()
 _CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
 
 init_logs()
@@ -53,12 +56,18 @@ app = DashProxy(
 
 server = app.server
 server.secret_key = _SECRET
+server.wsgi_app = ProxyFix(server.wsgi_app, x_proto=1, x_host=1)
 server.config.update(
-    AUTH_MODE="dev" if _DEV else "azure",  # or 'databricks'
+    AUTH_MODE="dev" if _DEV else "azure",
     CLIENT_ID=_CLIENT_ID,
     CLIENT_SECRET=_CLIENT_SECRET,
     AUTHORITY=_AUTHORITY,
     SCOPE=_SCOPE,
+    REDIRECT_PATH=_REDIRECT_PATH,
+    REDIRECT_URI=_REDIRECT_URI,
+    REDIRECT_URI=os.getenv("REDIRECT_URI", "").strip(),
+    REDIRECT_PATH=os.getenv("REDIRECT_PATH", "/getAToken").strip(),
+    PREFERRED_URL_SCHEME="https",
     SESSION_TYPE='redis',
     SESSION_REDIS=redis.from_url(_CELERY_BROKER_URL),
     SESSION_PERMANENT=False,
