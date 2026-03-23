@@ -1,6 +1,5 @@
 # src/web/auth.py
 
-import os
 import uuid
 import functools
 from collections.abc import Callable
@@ -12,7 +11,16 @@ from shared.db.users import add_user, auth_dev_user, get_user_email as db_get_us
 
 
 _DEFAULT_REDIRECT_PATH = "/getAToken"
-_PUBLIC_PATH_PREFIXES = ("/login", "/logout", "/logoffCompleted", "/assets/", "/_dash-", "/_favicon.ico", "/static/")
+_PUBLIC_PATH_PREFIXES = (
+    "/login",
+    "/logout",
+    "/logoffCompleted",
+    "/assets/",
+    "/_dash-",
+    "/_favicon.ico",
+    "/static/",
+    "/getAToken",
+)
 
 bp = Blueprint("auth", __name__, url_prefix="")
 
@@ -22,10 +30,6 @@ def _redirect_uri() -> str:
     if configured:
         return str(configured).strip()
     return url_for("auth.auth_response", _external=True)
-
-
-def _redirect_path() -> str:
-    return str(current_app.config.get("REDIRECT_PATH", _DEFAULT_REDIRECT_PATH)).strip()
 
 
 def _auth_mode() -> str:
@@ -40,12 +44,8 @@ def _msal_auth_enabled() -> bool:
     return _auth_mode() == "azure"
 
 
-def _databricks_auth_enabled() -> bool:
-    return _auth_mode() == "databricks"
-
-
 def _oidc_auth_enabled() -> bool:
-    return _msal_auth_enabled() or _databricks_auth_enabled()
+    return _msal_auth_enabled()
 
 
 def _is_configured() -> bool:
@@ -151,7 +151,7 @@ def login():
         if not _is_configured():
             return "Auth configuration error: set CLIENT_ID and CLIENT_SECRET.", 500
         return redirect(_build_auth_url())
-    return "Unsupported AUTH_MODE. Use 'dev', 'azure' or 'databricks'.", 500
+    return "Unsupported AUTH_MODE. Use 'dev' or 'azure'.", 500
 
 
 @bp.route(_DEFAULT_REDIRECT_PATH)
@@ -175,8 +175,16 @@ def auth_response():
         user_email = _extract_user_email(claims)
         add_user(user_name, password_hash="", email=user_email, exists_ok=True)
         session["user_name"] = user_name
+        session.modified = True
+
+        current_app.logger.warning(
+            "auth_response user=%s session=%s",
+            user_name,
+            dict(session),
+        )
+        
         return redirect("/")
-    return "Unsupported AUTH_MODE. Use 'dev', 'azure' or 'databricks'.", 500
+    return "Unsupported AUTH_MODE. Use 'dev' or 'azure'.", 500
 
 
 @bp.route("/logout")
@@ -189,7 +197,7 @@ def logout():
             "https://login.microsoftonline.com/common/oauth2/v2.0/logout"
             f"?post_logout_redirect_uri={url_for('auth.logoffCompleted', _external=True)}"
         )
-    return "Unsupported AUTH_MODE. Use 'dev', 'azure' or 'databricks'.", 500
+    return "Unsupported AUTH_MODE. Use 'dev' or 'azure'.", 500
 
 
 @bp.route("/logoffCompleted")
@@ -207,13 +215,24 @@ def login_required(view: Callable):
 
 
 def request_guard():
+    current_app.logger.warning(
+        "request_guard path=%s authenticated=%s session=%s",
+        request.path,
+        _is_authenticated(),
+        dict(session),
+    )
+
     if is_public_path(request.path):
         return None
+
     if not (_dev_auth_enabled() or _oidc_auth_enabled()):
-        return "Unsupported AUTH_MODE. Use 'dev', 'azure' or 'databricks'.", 500
+        return "Unsupported AUTH_MODE. Use 'dev' or 'azure'.", 500
+
     if not _is_authenticated():
         return redirect(url_for("auth.login", next=request.path))
+
     user_name = session.get("user_name")
     if user_name:
         add_user(str(user_name), password_hash="", exists_ok=True)
+
     return None

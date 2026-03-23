@@ -17,6 +17,14 @@ fi
 export AZURE_CORE_ONLY_SHOW_ERRORS
 echo "Starting deployment for ${APP_NAME} (${ENVIRONMENT}) in ${LOCATION}"
 
+# Prevent Git-Bash/MSYS path rewriting (e.g., /app -> C:/Program Files/Git/app).
+case "$(uname -s 2>/dev/null || true)" in
+  MINGW*|MSYS*|CYGWIN*)
+    export MSYS_NO_PATHCONV=1
+    export MSYS2_ARG_CONV_EXCL="*"
+    ;;
+esac
+
 ensure_provider() {
   local provider="$1"
   local state
@@ -184,7 +192,7 @@ REDIS_KEY="$(az redis list-keys \
   --name "$REDIS_NAME" \
   --query primaryKey \
   -o tsv)"
-REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380"
+REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380?ssl_cert_reqs=CERT_REQUIRED"
 echo "Redis: ${REDIS_NAME}"
 echo "RedisURL: ${REDIS_URL}"
 echo "Redis ready."
@@ -250,13 +258,12 @@ echo "Images built and pushed: ${WEB_IMAGE_FULL}, ${WORKER_IMAGE_FULL}"
 APP_WEB_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-web"
 APP_WORKER_DEFAULT_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-default"
 APP_WORKER_BACKGROUND_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-long"
-CELERY_REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0"
+CELERY_REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0?ssl_cert_reqs=CERT_REQUIRED"
 CELERY_BROKER_URL="$CELERY_REDIS_URL"
 CELERY_RESULT_BACKEND="$CELERY_REDIS_URL"
 DATABASE_URL="postgresql+psycopg://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require"
 DEV="false"
 SCOPE=""  # "openid,profile"
-REDIRECT_PATH="/getAToken"
 
 # Web (public)
 if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; then
@@ -268,7 +275,7 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
     -o tsv)"
   REDIRECT_URI=""
   if [ -n "$WEB_APP_FQDN" ]; then
-    REDIRECT_URI="https://${WEB_APP_FQDN}${REDIRECT_PATH}"
+    REDIRECT_URI="https://${WEB_APP_FQDN}/getAToken"
   fi
   az containerapp secret set \
     --name "$APP_WEB_NAME" \
@@ -289,7 +296,6 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
       DEV="$DEV" \
-      REDIRECT_PATH="$REDIRECT_PATH" \
       REDIRECT_URI="$REDIRECT_URI" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
@@ -320,7 +326,6 @@ else
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
       DEV="$DEV" \
-      REDIRECT_PATH="$REDIRECT_PATH" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CLIENT_ID=secretref:client-id \
@@ -332,13 +337,12 @@ else
     --query properties.configuration.ingress.fqdn \
     -o tsv)"
   if [ -n "$WEB_APP_FQDN" ]; then
-    REDIRECT_URI="https://${WEB_APP_FQDN}${REDIRECT_PATH}"
+    REDIRECT_URI="https://${WEB_APP_FQDN}/getAToken"
     az containerapp update \
       --name "$APP_WEB_NAME" \
       --resource-group "$RG" \
       --set-env-vars \
-        REDIRECT_URI="$REDIRECT_URI" \
-        REDIRECT_PATH="$REDIRECT_PATH"
+        REDIRECT_URI="$REDIRECT_URI"
   fi
 fi
 echo "Web app ready: ${APP_WEB_NAME}"
@@ -356,13 +360,16 @@ if az_exists containerapp show --name "$APP_WORKER_DEFAULT_NAME" --resource-grou
     --name "$APP_WORKER_DEFAULT_NAME" \
     --resource-group "$RG" \
     --image "$WORKER_IMAGE_FULL" \
-    --command "celery" \
-    --args "-A shared.celery_app:celery_app worker --loglevel=INFO -Q default --concurrency=1 -n default@%h" \
+    --command "/app/src/worker/entrypoint.sh" \
     --min-replicas 1 \
     --max-replicas 1 \
     --set-env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      WORKER_QUEUE="default" \
+      WORKER_NAME="default@%h" \
+      WORKER_LOGLEVEL="INFO" \
+      WORKER_CONCURRENCY="1" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CELERY_RESULT_BACKEND=secretref:redis-url
@@ -374,8 +381,7 @@ else
     --environment "$CONTAINER_ENV" \
     --image "$WORKER_IMAGE_FULL" \
     --registry-server "$ACR_NAME.azurecr.io" \
-    --command "celery" \
-    --args "-A shared.celery_app:celery_app worker --loglevel=INFO -Q default --concurrency=1 -n default@%h" \
+    --command "/app/src/worker/entrypoint.sh" \
     --min-replicas 1 \
     --max-replicas 1 \
     --secrets \
@@ -384,6 +390,10 @@ else
     --env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      WORKER_QUEUE="default" \
+      WORKER_NAME="default@%h" \
+      WORKER_LOGLEVEL="INFO" \
+      WORKER_CONCURRENCY="1" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CELERY_RESULT_BACKEND=secretref:redis-url
@@ -403,13 +413,16 @@ if az_exists containerapp show --name "$APP_WORKER_BACKGROUND_NAME" --resource-g
     --name "$APP_WORKER_BACKGROUND_NAME" \
     --resource-group "$RG" \
     --image "$WORKER_IMAGE_FULL" \
-    --command "celery" \
-    --args "-A shared.celery_app:celery_app worker --loglevel=INFO -Q background --concurrency=1 -n long@%h" \
+    --command "/app/src/worker/entrypoint.sh" \
     --min-replicas 1 \
     --max-replicas 1 \
     --set-env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      WORKER_QUEUE="background" \
+      WORKER_NAME="long@%h" \
+      WORKER_LOGLEVEL="INFO" \
+      WORKER_CONCURRENCY="1" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CELERY_RESULT_BACKEND=secretref:redis-url
@@ -421,8 +434,7 @@ else
     --environment "$CONTAINER_ENV" \
     --image "$WORKER_IMAGE_FULL" \
     --registry-server "$ACR_NAME.azurecr.io" \
-    --command "celery" \
-    --args "-A shared.celery_app:celery_app worker --loglevel=INFO -Q background --concurrency=1 -n long@%h" \
+    --command "/app/src/worker/entrypoint.sh" \
     --min-replicas 1 \
     --max-replicas 1 \
     --secrets \
@@ -431,6 +443,10 @@ else
     --env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      WORKER_QUEUE="background" \
+      WORKER_NAME="long@%h" \
+      WORKER_LOGLEVEL="INFO" \
+      WORKER_CONCURRENCY="1" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CELERY_RESULT_BACKEND=secretref:redis-url
@@ -445,8 +461,7 @@ WEB_APP_FQDN="$(az containerapp show \
   -o tsv)"
 if [ -n "$WEB_APP_FQDN" ]; then
   echo "Web app URL: https://${WEB_APP_FQDN}"
-  REDIRECT_PATH="/getAToken"
-  REDIRECT_URI="https://${WEB_APP_FQDN}${REDIRECT_PATH}"
+  REDIRECT_URI="https://${WEB_APP_FQDN}/getAToken"
   az ad app update --id "$CLIENT_ID" --web-redirect-uris "$REDIRECT_URI"
   echo "AAD redirect URI set: ${REDIRECT_URI}"
 else

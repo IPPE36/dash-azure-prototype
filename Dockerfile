@@ -16,6 +16,7 @@ RUN addgroup --system app && adduser --system --ingroup app app
 # copy code
 COPY --chown=app:app src/ /app/src/
 RUN chown -R app:app /app
+RUN chmod +x /app/src/worker/entrypoint.sh
 
 # make /app/src importable: "import shared", "import web"
 ENV PYTHONPATH=/app/src

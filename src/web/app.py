@@ -35,7 +35,6 @@ _TENANT_ID = os.getenv("TENANT_ID", "common").strip()
 _AUTHORITY = os.getenv("AUTHORITY", f"https://login.microsoftonline.com/{_TENANT_ID}").strip()
 _SECRET = os.getenv("SECRET", "fallback-secret")
 _SCOPE = [s.strip() for s in os.getenv("SCOPE", "").split(",") if s.strip()]
-_REDIRECT_PATH = os.getenv("REDIRECT_PATH", "/getAToken").strip()
 _REDIRECT_URI = os.getenv("REDIRECT_URI", "").strip()
 _CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
 
@@ -63,16 +62,18 @@ server.config.update(
     CLIENT_SECRET=_CLIENT_SECRET,
     AUTHORITY=_AUTHORITY,
     SCOPE=_SCOPE,
-    REDIRECT_PATH=_REDIRECT_PATH,
-    REDIRECT_URI=_REDIRECT_URI,
+    REDIRECT_URI=os.getenv("REDIRECT_URI", "").strip(),
+    REDIRECT_PATH=os.getenv("REDIRECT_PATH", "/getAToken").strip(),
     PREFERRED_URL_SCHEME="https",
-    SESSION_TYPE='redis',
-    SESSION_REDIS=redis.from_url(_CELERY_BROKER_URL),
+    SESSION_TYPE="redis",
+    SESSION_REDIS=redis.from_url(_CELERY_BROKER_URL, decode_responses=False),
+    SESSION_KEY_PREFIX="session:",
+    SESSION_COOKIE_NAME="suite_session",
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True,
     SESSION_COOKIE_SECURE=not _DEV,
     SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE='Lax',
+    SESSION_COOKIE_SAMESITE="Lax",
 )
 Session(server)
 
