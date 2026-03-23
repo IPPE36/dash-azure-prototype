@@ -65,8 +65,6 @@ server.config.update(
     SCOPE=_SCOPE,
     REDIRECT_PATH=_REDIRECT_PATH,
     REDIRECT_URI=_REDIRECT_URI,
-    REDIRECT_URI=os.getenv("REDIRECT_URI", "").strip(),
-    REDIRECT_PATH=os.getenv("REDIRECT_PATH", "/getAToken").strip(),
     PREFERRED_URL_SCHEME="https",
     SESSION_TYPE='redis',
     SESSION_REDIS=redis.from_url(_CELERY_BROKER_URL),
