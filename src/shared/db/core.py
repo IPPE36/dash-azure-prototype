@@ -1,7 +1,6 @@
 # src/shared/db/core.py
 
 import logging
-import os
 import subprocess
 import zlib
 from datetime import datetime, timedelta, timezone
@@ -14,13 +13,16 @@ from sqlalchemy.orm import DeclarativeBase, Mapped, sessionmaker, mapped_column
 from sqlalchemy.schema import CreateColumn
 from werkzeug.security import generate_password_hash
 
+from shared.config import (
+    DATABASE_URL,
+    DB_BACKUP_DIR,
+    DB_BACKUP_MAX_AGE_HOURS,
+    DB_BACKUP_ON_STARTUP,
+    DEV,
+)
+
 Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
-_DEV = os.getenv("DEV", "true").lower() == "true"
-_DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
-_BACKUP_ON_STARTUP = os.getenv("DB_BACKUP_ON_STARTUP", "true").lower() == "true"
-_BACKUP_DIR = os.getenv("DB_BACKUP_DIR", "./db_backups").strip() or "./db_backups"
-_BACKUP_MAX_AGE_HOURS = int(os.getenv("DB_BACKUP_MAX_AGE_HOURS", "168"))
 _DEFAULT_DEV_USERS = (
     ("root", "123", "admin", "root@local.dev"),
     ("admin", "123", "admin", "admin@local.dev"),
@@ -30,7 +32,7 @@ _DEFAULT_DEV_USERS = (
 logger = logging.getLogger(__name__)
 
 engine = create_engine(
-    _DATABASE_URL,
+    DATABASE_URL,
     future=True,
     pool_pre_ping=True,
     pool_size=5,
@@ -47,7 +49,7 @@ engine = create_engine(
             "-c idle_in_transaction_session_timeout=60000"
         ),
     },
-) if _DATABASE_URL else None
+) if DATABASE_URL else None
 
 SessionLocal = sessionmaker(
     bind=engine,
@@ -92,7 +94,7 @@ def _utc_now() -> datetime:
 
 
 def _get_backup_dir() -> Path:
-    return Path(_BACKUP_DIR).expanduser().resolve()
+    return Path(DB_BACKUP_DIR).expanduser().resolve()
 
 
 def _latest_backup_at() -> datetime | None:
@@ -110,7 +112,7 @@ def _run_startup_backup() -> Path:
     backup_dir.mkdir(parents=True, exist_ok=True)
     ts = _utc_now().strftime("%d-%m-%Y")
     dump_path = backup_dir / f"dash_{ts}.dump"
-    pg_dump_url = _DATABASE_URL
+    pg_dump_url = DATABASE_URL
     if "://" in pg_dump_url and "+" in pg_dump_url.split("://", 1)[0]:
         scheme, rest = pg_dump_url.split("://", 1)
         pg_dump_url = f"{scheme.split('+', 1)[0]}://{rest}"
@@ -137,7 +139,7 @@ def _assert_backup_fresh() -> bool:
     if last is None:
         return False
     age = _utc_now() - last
-    return age <= timedelta(hours=_BACKUP_MAX_AGE_HOURS)
+    return age <= timedelta(hours=DB_BACKUP_MAX_AGE_HOURS)
 
 
 def _sync_columns(conn) -> None:
@@ -200,7 +202,7 @@ def init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": lock_key})
             try:
-                if not _assert_backup_fresh() and _BACKUP_ON_STARTUP:
+                if not _assert_backup_fresh() and DB_BACKUP_ON_STARTUP:
                     try:
                         _run_startup_backup()
                     except FileNotFoundError:
@@ -225,6 +227,6 @@ def init_db() -> None:
     except DBAPIError:
         logger.exception("database schema initialization failed")
         raise
-    if _DEV:
+    if DEV:
         _add_dev_users()
     logger.info("database schema initialized")

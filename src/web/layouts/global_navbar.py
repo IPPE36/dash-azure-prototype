@@ -1,13 +1,10 @@
 # src/web/layout/navbar.py
 
-import os
-
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
 from web.theme import ICON_APP, ICON_NAV
-
-_APP_NAME = os.getenv("APP_NAME", "Suite")
+from web.config import APP_NAME
 
 def build_global_navbar():
     navbar = dbc.Navbar(
@@ -17,7 +14,7 @@ def build_global_navbar():
                     dbc.NavbarBrand(
                         [
                             html.I(className=ICON_APP),
-                            html.Span(_APP_NAME, className="fw-semibold ms-2"),
+                            html.Span(APP_NAME, className="fw-semibold ms-2"),
                         ],
                         className="text-white d-flex align-items-center",
                     ),
@@ -119,7 +116,7 @@ def build_global_nav_offcanvas():
         id="nav-offcanvas",
         title=[
             html.I(className=ICON_NAV),
-            f"{_APP_NAME} / Navigation"
+            f"{APP_NAME} / Navigation"
         ],
         is_open=False,
         placement="start",

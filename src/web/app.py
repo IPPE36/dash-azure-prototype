@@ -1,6 +1,5 @@
 # src/web/app.py
 
-import os
 import redis
 
 from flask_session import Session
@@ -10,41 +9,31 @@ from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, Multi
 from dash_breakpoints_new import WindowBreakpoints
 
 from shared.db import init_db
-from shared.logs import init_logs
+from shared.log import init_logs
 from .auth import bp as auth_bp, request_guard
 from .layouts import build_global_toast, build_global_navbar, build_global_nav_offcanvas
 from .callbacks import register_callbacks_navbar, register_callbacks_toast
-
-
-def _env_str(name: str, default: str = "") -> str:
-    # Allow inline comment style values in .env (e.g., "dev  # note").
-    return os.getenv(name, default).split("#", 1)[0].strip()
-
-
-def _env_bool(name: str, default: bool = False) -> bool:
-    raw = _env_str(name, str(default)).lower()
-    return raw in {"1", "true", "t", "yes", "y", "on"}
-
-
-_APP_NAME = os.getenv("APP_NAME", "Suite")
-_VERSION = os.getenv("APP_VERSION", "1.0")
-_DEV = _env_bool("DEV", default=True)
-_CLIENT_ID = os.getenv("CLIENT_ID", "").strip()
-_CLIENT_SECRET = os.getenv("CLIENT_SECRET", "").strip()
-_TENANT_ID = os.getenv("TENANT_ID", "common").strip()
-_AUTHORITY = os.getenv("AUTHORITY", f"https://login.microsoftonline.com/{_TENANT_ID}").strip()
-_SECRET = os.getenv("SECRET", "fallback-secret")
-_SCOPE = [s.strip() for s in os.getenv("SCOPE", "").split(",") if s.strip()]
-_REDIRECT_URI = os.getenv("REDIRECT_URI", "").strip()
-_CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL")
+from .config import (
+    APP_NAME,
+    APP_VERSION,
+    AUTHORITY,
+    CELERY_BROKER_URL,
+    CLIENT_ID,
+    CLIENT_SECRET,
+    DEV,
+    REDIRECT_PATH,
+    REDIRECT_URI,
+    SCOPE,
+    SECRET,
+)
 
 init_logs()
 init_db()
 
 app = DashProxy(
     name=__name__,
-    title=f"{_APP_NAME}-{_VERSION}",
-    update_title=f"{_APP_NAME}-{_VERSION}",
+    title=f"{APP_NAME}-{APP_VERSION}",
+    update_title=f"{APP_NAME}-{APP_VERSION}",
     external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME],
     transforms=[TriggerTransform(), MultiplexerTransform()],
     use_pages=True,
@@ -54,24 +43,24 @@ app = DashProxy(
 )
 
 server = app.server
-server.secret_key = _SECRET
+server.secret_key = SECRET
 server.wsgi_app = ProxyFix(server.wsgi_app, x_proto=1, x_host=1)
 server.config.update(
-    AUTH_MODE="dev" if _DEV else "azure",
-    CLIENT_ID=_CLIENT_ID,
-    CLIENT_SECRET=_CLIENT_SECRET,
-    AUTHORITY=_AUTHORITY,
-    SCOPE=_SCOPE,
-    REDIRECT_URI=os.getenv("REDIRECT_URI", "").strip(),
-    REDIRECT_PATH=os.getenv("REDIRECT_PATH", "/getAToken").strip(),
+    AUTH_MODE="dev" if DEV else "azure",
+    CLIENT_ID=CLIENT_ID,
+    CLIENT_SECRET=CLIENT_SECRET,
+    AUTHORITY=AUTHORITY,
+    SCOPE=SCOPE,
+    REDIRECT_URI=REDIRECT_URI,
+    REDIRECT_PATH=REDIRECT_PATH,
     PREFERRED_URL_SCHEME="https",
     SESSION_TYPE="redis",
-    SESSION_REDIS=redis.from_url(_CELERY_BROKER_URL, decode_responses=False),
+    SESSION_REDIS=redis.from_url(CELERY_BROKER_URL, decode_responses=False),
     SESSION_KEY_PREFIX="session:",
     SESSION_COOKIE_NAME="suite_session",
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True,
-    SESSION_COOKIE_SECURE=not _DEV,
+    SESSION_COOKIE_SECURE=not DEV,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )

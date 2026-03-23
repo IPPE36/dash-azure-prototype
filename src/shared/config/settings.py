@@ -1,1 +1,0 @@
-# src/shared/config/settings.py

@@ -2,16 +2,14 @@
 
 import json
 import logging
-import os
 import sys
 from datetime import datetime, timezone
 import threading
 
+from shared.config import LOG_FORMAT, LOG_LEVEL
 
 _CONFIGURED = False
-_CONFIG_LOCK = threading.Lock()
-_LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
-_LOG_FORMAT = os.getenv("LOG_FORMAT", "console").lower()
+_LOCK = threading.Lock()
 
 
 class JsonFormatter(logging.Formatter):
@@ -35,18 +33,18 @@ def init_logs() -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
-    with _CONFIG_LOCK:
-        level = getattr(logging, _LOG_LEVEL, logging.INFO)
+    with _LOCK:
+        level = getattr(logging, LOG_LEVEL, logging.INFO)
 
         root = logging.getLogger()
         root.setLevel(level)
 
         handler = logging.StreamHandler(stream=sys.stdout)
-        if _LOG_FORMAT == "console":
+        if LOG_FORMAT == "console":
             handler.setFormatter(logging.Formatter(
                 "%(asctime)s %(levelname)s %(name)s %(message)s"
             ))
-        elif _LOG_FORMAT == "json":
+        elif LOG_FORMAT == "json":
             handler.setFormatter(JsonFormatter())
         else:
             raise ValueError("LOG_FORMAT needs to be either 'console' or 'json'")

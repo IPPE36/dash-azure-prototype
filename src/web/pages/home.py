@@ -1,12 +1,9 @@
 # src/web/pages/home.py
 
-import os
-
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import register_page, html
 
-_APP_NAME = os.getenv("APP_NAME", "Suite")
-_VERSION = os.getenv("APP_VERSION", "1.0")
+from web.config import APP_NAME, APP_VERSION
 
 register_page(__name__, path="/", title="Home")
 
@@ -17,7 +14,7 @@ layout = dbc.Container(
                 dbc.Card(
                     dbc.CardBody(
                         [
-                            html.H1(f"{_APP_NAME}-{_VERSION}", className="display-5 fw-semibold"),
+                            html.H1(f"{APP_NAME}-{APP_VERSION}", className="display-5 fw-semibold"),
                             html.P(
                                 "Welcome. Use Jobs to run and monitor background tasks.",
                                 className="lead mb-4",

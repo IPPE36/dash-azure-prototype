@@ -1,6 +1,5 @@
 # src/web/callbacks/jobs.py
 
-import os
 import uuid
 
 from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, MATCH
@@ -10,11 +9,8 @@ from shared.db import get_user_id, add_task, get_queue_position, get_user_task_c
 from shared.celery_tasks import long_task, short_task
 from web.auth import get_user_name
 from web.callbacks import toast_payload
+from web.config import MAX_USER_TASKS_ACTIVE, MAX_USER_TASKS_TOTAL
 from web.theme import CIRCLE_TAG
-
-
-_MAX_USER_TASKS_ACTIVE = os.getenv("MAX_USER_TASKS_ACTIVE", 3)
-_MAX_USER_TASKS_TOTAL = os.getenv("MAX_USER_TASKS_TOTAL", 50)
 
 
 def register_callbacks_jobs():
@@ -208,8 +204,8 @@ def register_callbacks_jobs():
             )
         
         n_active = get_user_task_count(user_id)
-        if n_active >= _MAX_USER_TASKS_ACTIVE:
-            message = f"Maximum number of user active tasks is {_MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete..."
+        if n_active >= MAX_USER_TASKS_ACTIVE:
+            message = f"Maximum number of user active tasks is {MAX_USER_TASKS_ACTIVE}! Please wait until PENDING tasks complete..."
             return (
                 toast_payload("Job Submit", message, kind="danger"),
                 no_update,
@@ -220,8 +216,8 @@ def register_callbacks_jobs():
             )
         
         n_total = get_user_task_count(user_id, statuses=None)
-        if n_total >= _MAX_USER_TASKS_TOTAL:
-            message = f"Maximum number of user total tasks is {_MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database..."
+        if n_total >= MAX_USER_TASKS_TOTAL:
+            message = f"Maximum number of user total tasks is {MAX_USER_TASKS_TOTAL}! Please delete old tasks in the database..."
             return (
                 toast_payload("Job Submit", message, kind="danger"),
                 no_update,
@@ -264,7 +260,7 @@ def register_callbacks_jobs():
             user_id=user_id,
             include_payloads=False,
             columns={"status", "task_name", "tag", "version", "progress", "task_id", "created_at"},
-            limit=_MAX_USER_TASKS_TOTAL,
+            limit=MAX_USER_TASKS_TOTAL,
             newest_first=True,
         )
         for i, t in enumerate(user_tasks):

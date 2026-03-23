@@ -17,6 +17,13 @@ class ModelRuntime:
 
     def _load_model(self):
         # Replace with real model load, e.g. torch/transformers pipeline.
+        # For torch, use device decided in bootstrap.
+        try:
+            from worker.torch_utils import get_device
+            device = get_device()
+            logger.info("loading model on device=%s", device)
+        except Exception:
+            pass
         return "model-loaded"
 
     def predict(self, x: int) -> str:

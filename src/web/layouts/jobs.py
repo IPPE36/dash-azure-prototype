@@ -19,7 +19,7 @@ COLUMNS = [
 ]
 
 
-def build_jobs_layout():
+def build_layout_jobs():
 
     inputs = build_input_list(
         row_list=[

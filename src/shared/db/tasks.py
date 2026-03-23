@@ -1,15 +1,15 @@
 # src/shared/db/tasks.py
 
-import os
 from typing import Any, Iterable
 
 from sqlalchemy import and_, select, delete, update, func
 
 from .core import Payload, SessionLocal, Tasks
+from shared.config import APP_VERSION
 
 
 ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
-_VERSION = os.getenv("APP_VERSION", "1.0")
+_VERSION = APP_VERSION
 _STRFTIME = "%d-%m-%Y %H:%M"
 _TASK_COLUMN_MAP = {
     "task_id": Tasks.task_id,

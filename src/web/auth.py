@@ -10,7 +10,6 @@ import msal
 from shared.db.users import add_user, auth_dev_user, get_user_email as db_get_user_email
 
 
-_DEFAULT_REDIRECT_PATH = "/getAToken"
 _PUBLIC_PATH_PREFIXES = (
     "/login",
     "/logout",
@@ -154,7 +153,7 @@ def login():
     return "Unsupported AUTH_MODE. Use 'dev' or 'azure'.", 500
 
 
-@bp.route(_DEFAULT_REDIRECT_PATH)
+@bp.route("/getAToken")
 def auth_response():
     if _oidc_auth_enabled():
         if not _is_configured():
