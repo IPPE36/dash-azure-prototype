@@ -60,7 +60,7 @@ celery_app.conf.update(
 
 @worker_process_init.connect
 def warm_up_workers(**kwargs):
-    # Runs once per worker process so large models are reused by tasks.
+    # Runs once per worker process; -> large models are reused and not loaded again.
     from shared.log import configure_logs
     configure_logs()
     from worker.torch_utils.bootstrap import configure_torch

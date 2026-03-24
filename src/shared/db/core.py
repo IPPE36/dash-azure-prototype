@@ -222,7 +222,7 @@ def _init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": lock_key})
             try:
-                if not _assert_backup_fresh() and DB_BACKUP_ON_STARTUP:
+                if DEV and DB_BACKUP_ON_STARTUP and not _assert_backup_fresh():
                     try:
                         _run_startup_backup()
                     except FileNotFoundError:
@@ -234,13 +234,10 @@ def _init_db() -> None:
                         )
                 Base.metadata.create_all(bind=conn)
                 _sync_columns(conn)
-
-                # remove stale tasks upon startup
                 result = conn.execute(
                     delete(Tasks).where(Tasks.status.in_(["PENDING", "RUNNING"]))
                 )
                 logger.info("removed stale tasks", extra={"deleted": result.rowcount})
-
                 conn.commit()
             finally:
                 conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})

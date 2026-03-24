@@ -192,7 +192,7 @@ REDIS_KEY="$(az redis list-keys \
   --name "$REDIS_NAME" \
   --query primaryKey \
   -o tsv)"
-REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380?ssl_cert_reqs=CERT_REQUIRED"
+REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380?ssl_cert_reqs=required"
 echo "Redis: ${REDIS_NAME}"
 echo "RedisURL: ${REDIS_URL}"
 echo "Redis ready."
@@ -262,7 +262,7 @@ echo "Images built and pushed: ${WEB_IMAGE_FULL}, ${WORKER_IMAGE_FULL}"
 APP_WEB_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-web"
 APP_WORKER_DEFAULT_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-default"
 APP_WORKER_BACKGROUND_NAME="ca-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}-worker-long"
-CELERY_REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0?ssl_cert_reqs=CERT_REQUIRED"
+CELERY_REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0?ssl_cert_reqs=required"
 CELERY_BROKER_URL="$CELERY_REDIS_URL"
 CELERY_RESULT_BACKEND="$CELERY_REDIS_URL"
 DATABASE_URL="postgresql+psycopg://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require"
@@ -370,6 +370,7 @@ if az_exists containerapp show --name "$APP_WORKER_DEFAULT_NAME" --resource-grou
     --set-env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      MODEL_PATH="/app/models" \
       WORKER_QUEUE="default" \
       WORKER_NAME="default@%h" \
       WORKER_LOGLEVEL="INFO" \
@@ -394,6 +395,7 @@ else
     --env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      MODEL_PATH="/app/models" \
       WORKER_QUEUE="default" \
       WORKER_NAME="default@%h" \
       WORKER_LOGLEVEL="INFO" \
@@ -423,6 +425,7 @@ if az_exists containerapp show --name "$APP_WORKER_BACKGROUND_NAME" --resource-g
     --set-env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      MODEL_PATH="/app/models" \
       WORKER_QUEUE="background" \
       WORKER_NAME="long@%h" \
       WORKER_LOGLEVEL="INFO" \
@@ -447,6 +450,7 @@ else
     --env-vars \
       APP_VERSION="$APP_VERSION" \
       DEV="$DEV" \
+      MODEL_PATH="/app/models" \
       WORKER_QUEUE="background" \
       WORKER_NAME="long@%h" \
       WORKER_LOGLEVEL="INFO" \
