@@ -45,8 +45,10 @@ app = DashProxy(
 server = app.server
 server.secret_key = SECRET
 server.wsgi_app = ProxyFix(server.wsgi_app, x_proto=1, x_host=1)
+_cookie_name = f"{APP_NAME}".strip().lower().replace(" ", "_") or "app"
+_cookie_name = f"{_cookie_name}_session"
 server.config.update(
-    AUTH_MODE="dev" if DEV else "azure",
+    AUTH_MODE="dev" if DEV else "msal",
     CLIENT_ID=CLIENT_ID,
     CLIENT_SECRET=CLIENT_SECRET,
     AUTHORITY=AUTHORITY,
@@ -57,7 +59,7 @@ server.config.update(
     SESSION_TYPE="redis",
     SESSION_REDIS=redis.from_url(CELERY_BROKER_URL, decode_responses=False),
     SESSION_KEY_PREFIX="session:",
-    SESSION_COOKIE_NAME="suite_session",
+    SESSION_COOKIE_NAME=_cookie_name,
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True,
     SESSION_COOKIE_SECURE=not DEV,

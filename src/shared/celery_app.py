@@ -56,7 +56,7 @@ celery_app.conf.update(
 )
 
 @worker_process_init.connect
-def warm_models(**kwargs):
+def warm_up_workers(**kwargs):
     # Runs once per worker process so large models are reused by tasks.
     from shared.log import configure_logs
     configure_logs()

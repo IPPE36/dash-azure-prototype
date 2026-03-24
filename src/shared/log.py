@@ -8,10 +8,9 @@ from functools import wraps
 import threading
 import time
 from contextlib import contextmanager
-from pathlib import Path
-import re
 
 from shared.config import LOG_FORMAT, LOG_LEVEL
+
 
 _CONFIGURED = False
 _LOCK = threading.Lock()

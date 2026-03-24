@@ -8,8 +8,7 @@ from .core import Payload, SessionLocal, Tasks
 from shared.config import APP_VERSION
 
 
-ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
-_VERSION = APP_VERSION
+_ACTIVE_TASK_STATUSES = {"PENDING", "RUNNING"}
 _STRFTIME = "%d-%m-%Y %H:%M"
 _TASK_COLUMN_MAP = {
     "task_id": Tasks.task_id,
@@ -43,7 +42,7 @@ def add_task(user_id: int, task_name: str, input_payload: Payload) -> int | None
         row = Tasks(
             user_id=user_id,
             task_name=task_name,
-            version=_VERSION,
+            version=APP_VERSION,
             input_payload=input_payload,
             status="PENDING",
             progress=0,
@@ -110,7 +109,7 @@ def get_task(task_id: int, *, include_payloads: bool = True) -> dict[str, Any] |
         return result
     
     
-def get_user_task_count(user_id: int, statuses: set[str] = ACTIVE_TASK_STATUSES) -> int:
+def get_user_task_count(user_id: int, statuses: set[str] = _ACTIVE_TASK_STATUSES) -> int:
     if SessionLocal is None:
         return 0
     with SessionLocal() as session:
@@ -130,7 +129,7 @@ def get_next_user_task_id(user_id: int) -> int | None:
             .where(
                 and_(
                     Tasks.user_id == user_id,
-                    Tasks.status.in_(ACTIVE_TASK_STATUSES),
+                    Tasks.status.in_(_ACTIVE_TASK_STATUSES),
                 )
             )
             .order_by(Tasks.task_id.asc())   # oldest first
@@ -144,7 +143,7 @@ def get_queue_length() -> int:
         return 0
     with SessionLocal() as session:
         stmt = select(func.count()).select_from(Tasks).where(
-            Tasks.status.in_(ACTIVE_TASK_STATUSES)
+            Tasks.status.in_(_ACTIVE_TASK_STATUSES)
         )
         return session.scalar(stmt) or 0
     
@@ -157,7 +156,7 @@ def get_queue_position(task_id: int) -> int | None:
             select(func.count())
             .select_from(Tasks)
             .where(
-                Tasks.status.in_(ACTIVE_TASK_STATUSES),
+                Tasks.status.in_(_ACTIVE_TASK_STATUSES),
                 Tasks.task_id <= task_id,
             )
         )
