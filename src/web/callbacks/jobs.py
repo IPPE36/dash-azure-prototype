@@ -11,6 +11,7 @@ from web.auth import get_user_name
 from web.callbacks import toast_payload
 from web.config import MAX_USER_TASKS_ACTIVE, MAX_USER_TASKS_TOTAL
 from web.theme import CIRCLE_TAG
+from web.plot_utils import scatter3d_figure
 
 
 def register_callbacks_jobs():
@@ -149,27 +150,7 @@ def register_callbacks_jobs():
         y_vals = [row.get("y") for row in payload if isinstance(row, dict)]
         z_vals = [row.get("z") for row in payload if isinstance(row, dict)]
 
-        figure = {
-            "data": [
-                {
-                    "type": "scatter3d",
-                    "mode": "markers",
-                    "x": x_vals,
-                    "y": y_vals,
-                    "z": z_vals,
-                    "marker": {"size": 3, "color": "var(--bs-primary)"},
-                }
-            ],
-            "layout": {
-                "height": 320,
-                "margin": {"l": 10, "r": 10, "t": 10, "b": 10},
-                "scene": {
-                    "xaxis": {"title": "x"},
-                    "yaxis": {"title": "y"},
-                    "zaxis": {"title": "z"},
-                },
-            },
-        }
+        figure = scatter3d_figure(x_vals, y_vals, z_vals, height=320)
         return figure, "jobs-tab-results"
 
 

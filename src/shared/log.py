@@ -1,4 +1,6 @@
 # src/shared/logs.py
+# Design note: logging is configured once per process with a lightweight JSON option.
+# Helpers here keep timing/error logs consistent and avoid noisy ad-hoc patterns.
 
 import json
 import logging

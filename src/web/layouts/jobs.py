@@ -5,6 +5,7 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html, dcc, dash_table
 
 from web.theme import ICON_SETTINGS
+from web.plot_utils import DEFAULT_CONFIG
 from web.layouts.settings import build_sliders, build_input_list, build_dropdown
 
 
@@ -322,7 +323,7 @@ def build_layout_jobs():
                         "margin": {"l": 10, "r": 10, "t": 10, "b": 10},
                     },
                 },
-                config={"displayModeBar": False},
+                config=DEFAULT_CONFIG,
             )
         ],
     )

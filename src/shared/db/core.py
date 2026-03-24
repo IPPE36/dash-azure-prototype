@@ -1,4 +1,9 @@
 # src/shared/db/core.py
+# Design note: DB bootstrap happens once per process and is protected by a
+# Postgres advisory lock to avoid concurrent schema edits across workers.
+# We keep a small pool to suit low-concurrency workloads and limit connections.
+# Optional startup backups protect against accidental changes in dev/testing,
+# Default dev users are seeded only when DEV=true for quick local access.
 
 import logging
 import subprocess

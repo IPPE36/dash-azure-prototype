@@ -1,4 +1,7 @@
 # src/shared/celery_app.py
+# Design note: Celery config is centralized here so web + workers share settings.
+# Worker init hooks are used to warm models and set runtime config per process.
+# This avoids per-task overhead and keeps concurrency predictable.
 
 import logging
 

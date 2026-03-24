@@ -1,5 +1,8 @@
 # src/web/auth.py
+# Design note: auth runs in two modes (dev + MSAL/OIDC). We keep logging
+# production-friendly (no session dumps) and centralize request context fields.
 
+import re
 import uuid
 import functools
 import logging
@@ -157,6 +160,17 @@ def get_user_email() -> str | None:
     if not user_name:
         return None
     return db_get_user_email(str(user_name))
+
+
+def get_initials(name: str | None) -> str:
+    if not name:
+        return "U"
+    parts = [p for p in re.split(r"[\\s._-]+", name.strip()) if p]
+    if not parts:
+        return "U"
+    if len(parts) == 1:
+        return parts[0][:2].upper()
+    return f"{parts[0][0]}{parts[-1][0]}".upper()
 
 
 @bp.route("/login", methods=["GET", "POST"])

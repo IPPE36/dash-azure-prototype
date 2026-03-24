@@ -1,4 +1,8 @@
 # src/web/app.py
+# Design note: web runtime is intentionally thin. It initializes logging/DB once,
+# Wires auth + session config, and defers heavy work to background workers.
+# This keeps HTTP latency low while workers handle CPU-heavy or long tasks.
+# DashProxy transforms enable multi-output callbacks and trigger-only callbacks
 
 import redis
 
@@ -44,6 +48,8 @@ app = DashProxy(
 
 server = app.server
 server.secret_key = SECRET
+# ProxyFix respects X-Forwarded-* headers behind reverse proxies (e.g. Azure),
+# so URL generation and scheme detection remain correct.
 server.wsgi_app = ProxyFix(server.wsgi_app, x_proto=1, x_host=1)
 _cookie_name = f"{APP_NAME}".strip().lower().replace(" ", "_") or "app"
 _cookie_name = f"{_cookie_name}_session"
