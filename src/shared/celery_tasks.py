@@ -23,7 +23,7 @@ def long_task(self, x: int, *, task_id: int) -> None:
     update_task(task_id, status="RUNNING")
 
     try:
-        from worker.model_runtime import get_runtime
+        from worker.runtime import get_runtime
         runtime = get_runtime()
         result = runtime.predict(x)
 

@@ -6,15 +6,13 @@ from celery import Celery
 from celery.signals import worker_process_init
 from kombu import Queue
 
-from shared.db import init_db
-from shared.log import init_logs
-from shared.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND, INIT_DB_ON_WORKER
+from shared.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
 
 
 logger = logging.getLogger(__name__)
 
 celery_app = Celery(
-    "celery_app",
+    __name__,
     broker=CELERY_BROKER_URL,
     backend=CELERY_RESULT_BACKEND,
     include=["shared.celery_tasks"],
@@ -60,16 +58,9 @@ celery_app.conf.update(
 @worker_process_init.connect
 def warm_models(**kwargs):
     # Runs once per worker process so large models are reused by tasks.
-    init_logs()
-    if INIT_DB_ON_WORKER:
-        init_db()
-    logger.info("model runtime warm-up started")
+    from shared.log import configure_logs
+    configure_logs()
     from worker.torch_utils.bootstrap import configure_torch
     configure_torch()
-    from worker.model_runtime import warm_up
-    warm_up()
-    logger.info("model runtime warm-up completed")
-
-
-if __name__ == "__main__":
-    exit()
+    from worker.runtime import configure_runtime
+    configure_runtime()

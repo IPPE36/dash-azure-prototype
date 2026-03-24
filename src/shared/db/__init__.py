@@ -1,6 +1,6 @@
 # src/shared/db/__init__.py
 
-from .core import init_db
+from .core import configure_db
 from .tasks import (
     add_task, 
     delete_task, 
@@ -15,7 +15,7 @@ from .tasks import (
 from .users import add_user, auth_dev_user, get_user_id, get_user_email
 
 __all__ = [
-    "init_db",
+    "configure_db",
     "add_task",
     "delete_task",
     "update_task",

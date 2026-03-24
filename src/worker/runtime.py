@@ -1,4 +1,4 @@
-# src/worker/model_runtime.py
+# src/worker/runtime.py
 
 from threading import Lock
 import logging
@@ -19,9 +19,8 @@ class ModelRuntime:
         # Replace with real model load, e.g. torch/transformers pipeline.
         # For torch, use device decided in bootstrap.
         try:
-            from worker.torch_utils import get_device
-            device = get_device()
-            logger.info("loading model on device=%s", device)
+            from worker.config import TORCH_DEVICE, MODEL_PATH
+            logger.info("loading model on device=%s path=%s", TORCH_DEVICE, MODEL_PATH)
         except Exception:
             pass
         return "model-loaded"
@@ -40,6 +39,6 @@ def get_runtime() -> ModelRuntime:
     return _RUNTIME
 
 
-def warm_up() -> None:
+def configure_runtime() -> None:
     logger.info("warm_up called")
     get_runtime()

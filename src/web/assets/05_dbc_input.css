@@ -1,4 +1,4 @@
-/* remove number spinners from input boxes to allow more compact layouts*/
+/* remove number spinners from specific input boxes to allow more compact layouts*/
 
 input.compact-input[type="number"]::-webkit-outer-spin-button,
 input.compact-input[type="number"]::-webkit-inner-spin-button {

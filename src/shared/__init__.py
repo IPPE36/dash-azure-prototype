@@ -11,7 +11,7 @@ from .config import (
     LOG_LEVEL,
 )
 from .env import env_bool, env_list, env_str, get_int_env
-from .log import init_logs
+from .log import configure_logs
 
 __all__ = [
     "APP_VERSION",
@@ -28,5 +28,5 @@ __all__ = [
     "env_list",
     "env_str",
     "get_int_env",
-    "init_logs",
+    "configure_logs",
 ]

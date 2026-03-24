@@ -3,6 +3,7 @@
 import logging
 import subprocess
 import zlib
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -21,13 +22,16 @@ from shared.config import (
     DEV,
 )
 
-Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
+_CONFIGURED = False
+_LOCK = threading.Lock()
 _DEFAULT_DEV_USERS = (
     ("root", "123", "admin", "root@local.dev"),
     ("admin", "123", "admin", "admin@local.dev"),
     ("user", "123", "user", "user@local.dev"),
 )
+
+Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
 logger = logging.getLogger(__name__)
 
@@ -193,7 +197,18 @@ def _add_dev_users() -> None:
         session.commit()
 
 
-def init_db() -> None:
+def configure_db() -> None:
+    global _CONFIGURED
+    if _CONFIGURED:
+        return
+    with _LOCK:
+        if _CONFIGURED:
+            return
+        _init_db()
+        _CONFIGURED = True
+
+
+def _init_db() -> None:
     if engine is None:
         logger.info("DATABASE_URL not set; skipping DB initialization")
         return

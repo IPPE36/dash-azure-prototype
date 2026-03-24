@@ -8,8 +8,8 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 from dash_breakpoints_new import WindowBreakpoints
 
-from shared.db import init_db
-from shared.log import init_logs
+from shared.db import configure_db
+from shared.log import configure_logs
 from .auth import bp as auth_bp, request_guard
 from .layouts import build_global_toast, build_global_navbar, build_global_nav_offcanvas
 from .callbacks import register_callbacks_navbar, register_callbacks_toast
@@ -27,8 +27,8 @@ from .config import (
     SECRET,
 )
 
-init_logs()
-init_db()
+configure_logs()
+configure_db()
 
 app = DashProxy(
     name=__name__,

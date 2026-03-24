@@ -7,6 +7,7 @@ RUN apt-get update \
     && rm -rf /var/lib/apt/lists/*
 
 ARG REQUIREMENTS=requirements/web.txt
+ARG MODEL_DIR=ml/models/artifacts
 COPY requirements/ ./requirements/
 RUN pip install --no-cache-dir -r $REQUIREMENTS
 
@@ -15,6 +16,8 @@ RUN addgroup --system app && adduser --system --ingroup app app
 
 # copy code
 COPY --chown=app:app src/ /app/src/
+# copy trained models (baked into image)
+COPY --chown=app:app ${MODEL_DIR}/ /app/models/
 RUN chown -R app:app /app
 RUN chmod +x /app/src/worker/entrypoint.sh
 

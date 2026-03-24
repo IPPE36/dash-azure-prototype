@@ -1,6 +1,5 @@
-from .bootstrap import configure_torch, get_device
+from .bootstrap import configure_torch
 
 __all__ = [
     "configure_torch",
-    "get_device",
 ]

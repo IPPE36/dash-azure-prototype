@@ -1,6 +1,6 @@
 # src/web/callbacks/global_toast.py
 
-from dash_extensions.enrich import Input, Output, clientside_callback, callback, no_update
+from dash_extensions.enrich import Input, Output, clientside_callback
 
 
 def toast_payload(

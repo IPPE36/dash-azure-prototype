@@ -12,4 +12,3 @@ DATABASE_URL = env_str("DATABASE_URL", "")
 DB_BACKUP_ON_STARTUP = env_bool("DB_BACKUP_ON_STARTUP", default=True)
 DB_BACKUP_DIR = env_str("DB_BACKUP_DIR", "./db_backups") or "./db_backups"
 DB_BACKUP_MAX_AGE_HOURS = get_int_env("DB_BACKUP_MAX_AGE_HOURS", default=168, amin=1)
-INIT_DB_ON_WORKER = env_bool("INIT_DB_ON_WORKER", default=False)

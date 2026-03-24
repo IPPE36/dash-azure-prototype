@@ -1,3 +1,5 @@
+/* use a toast window instead of traditional confirm boxes */
+
 .toast-header::before {
     font-family: "Font Awesome 6 Free";
     font-weight: 900;

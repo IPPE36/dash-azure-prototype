@@ -4,7 +4,10 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
+from functools import wraps
 import threading
+import time
+from contextlib import contextmanager
 
 from shared.config import LOG_FORMAT, LOG_LEVEL
 
@@ -29,7 +32,7 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(payload, ensure_ascii=True)
 
 
-def init_logs() -> None:
+def configure_logs() -> None:
     global _CONFIGURED
     if _CONFIGURED:
         return
@@ -52,3 +55,65 @@ def init_logs() -> None:
         root.handlers.clear()
         root.addHandler(handler)
         _CONFIGURED = True
+
+
+def log_timed(
+    logger: logging.Logger | None = None,
+    *,
+    success_level: int = logging.INFO,
+    failure_level: int = logging.ERROR,
+    label: str | None = None,
+    message: str | None = None,
+):
+    """
+    Decorator to log success/failure and elapsed time for a function. Use as...
+    @log_timed(label="do stuff")
+    def do_work():
+        your code...
+    """
+    log = logger or logging.getLogger(__name__)
+
+    def decorator(func):
+        name = label or message or func.__name__
+
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            start = time.perf_counter()
+            try:
+                result = func(*args, **kwargs)
+            except Exception:
+                elapsed = (time.perf_counter() - start) * 1000.0
+                log.log(failure_level, "failed %s (%.2f ms)", name, elapsed, exc_info=True)
+                raise
+            elapsed = (time.perf_counter() - start) * 1000.0
+            log.log(success_level, "completed %s (%.2f ms)", name, elapsed)
+            return result
+
+        return wrapper
+
+    return decorator
+
+
+@contextmanager
+def log_timed_block(
+    label: str,
+    logger: logging.Logger | None = None,
+    *,
+    success_level: int = logging.INFO,
+    failure_level: int = logging.ERROR,
+):
+    """
+    Context manager to log success/failure and elapsed time for a code block. Use as...
+    with log_timed_block("do stuff"):
+        your code...
+    """
+    log = logger or logging.getLogger(__name__)
+    start = time.perf_counter()
+    try:
+        yield
+    except Exception:
+        elapsed = (time.perf_counter() - start) * 1000.0
+        log.log(failure_level, "failed %s (%.2f ms)", label, elapsed, exc_info=True)
+        raise
+    elapsed = (time.perf_counter() - start) * 1000.0
+    log.log(success_level, "completed %s (%.2f ms)", label, elapsed)

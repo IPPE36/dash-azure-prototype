@@ -248,8 +248,12 @@ WEB_IMAGE="${APP_NAME}-web:latest"
 WORKER_IMAGE="${APP_NAME}-worker:latest"
 WEB_IMAGE_FULL="$ACR_NAME.azurecr.io/$WEB_IMAGE"
 WORKER_IMAGE_FULL="$ACR_NAME.azurecr.io/$WORKER_IMAGE"
-docker build -t "$WEB_IMAGE_FULL" --build-arg REQUIREMENTS=requirements/web.txt .
-docker build -t "$WORKER_IMAGE_FULL" --build-arg REQUIREMENTS=requirements/worker.txt .
+
+# NOTE: Models are baked into the image via MODEL_DIR.
+# Pros: fast startup, no external download dependency.
+# Cons: larger images + rebuild/redeploy required for model updates.
+docker build -t "$WEB_IMAGE_FULL" --build-arg REQUIREMENTS=requirements/web.txt --build-arg MODEL_DIR=ml/models/artifacts .
+docker build -t "$WORKER_IMAGE_FULL" --build-arg REQUIREMENTS=requirements/worker.txt --build-arg MODEL_DIR=ml/models/artifacts .
 docker push "$WEB_IMAGE_FULL"
 docker push "$WORKER_IMAGE_FULL"
 echo "Images built and pushed: ${WEB_IMAGE_FULL}, ${WORKER_IMAGE_FULL}"
