@@ -7,6 +7,9 @@
     outline: 0;
     box-shadow: 0 0 0 0.35rem color-mix(in srgb, var(--bs-primary) 25%, transparent);
 }
+.btn:active {
+    transform: translateY(-1);
+}
 .btn::before {
     font-family: "Font Awesome 6 Free";
     margin-right: 0.5rem;

@@ -85,4 +85,3 @@ app.layout = html.Div([
 
 register_callbacks_navbar()
 register_callbacks_toast()
-
