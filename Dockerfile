@@ -24,6 +24,7 @@ RUN chmod +x /app/src/worker/entrypoint.sh
 # make /app/src importable: "import shared", "import web"
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
 
 USER app
 
