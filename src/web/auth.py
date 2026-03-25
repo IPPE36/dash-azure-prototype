@@ -11,7 +11,7 @@ from collections.abc import Callable
 from flask import Blueprint, request, session, current_app, has_request_context, redirect, render_template, url_for
 import msal
 
-from shared.db.users import add_user, auth_dev_user, get_user_email as db_get_user_email
+from shared.db.users import add_user, auth_dev_user, get_user_email as db_get_user_email, is_user_active
 
 logger = logging.getLogger(__name__)
 
@@ -77,10 +77,6 @@ def _msal_auth_enabled() -> bool:
     return _auth_mode() == "msal"
 
 
-def _oidc_auth_enabled() -> bool:
-    return _msal_auth_enabled()
-
-
 def _is_configured() -> bool:
     return bool(current_app.config.get("CLIENT_ID") and current_app.config.get("CLIENT_SECRET"))
 
@@ -137,8 +133,9 @@ def _extract_user_email(user: dict | None) -> str | None:
 
 def _is_authenticated() -> bool:
     if _dev_auth_enabled():
-        return bool(session.get("dev_authenticated"))
-    if _oidc_auth_enabled():
+        user_name = session.get("user_name")
+        return bool(session.get("dev_authenticated") and user_name and is_user_active(str(user_name)))
+    if _msal_auth_enabled():
         return bool(session.get("user_name"))
     return False
 
@@ -193,24 +190,24 @@ def login():
         logger.warning("dev_login failed user=%s", username or "<empty>", extra=_log_extra())
         return render_template("dev_login.html", error="Invalid username or password."), 401
 
-    if _oidc_auth_enabled():
+    if _msal_auth_enabled():
         if not _is_configured():
-            logger.error("oidc_login misconfigured client credentials", extra=_log_extra())
+            logger.error("msal_login misconfigured client credentials", extra=_log_extra())
             return "Auth configuration error: set CLIENT_ID and CLIENT_SECRET.", 500
-        logger.info("oidc_login redirecting to provider", extra=_log_extra())
+        logger.info("msal_login redirecting to provider", extra=_log_extra())
         return redirect(_build_auth_url())
     return "Unsupported AUTH_MODE. Use 'dev' or 'msal'.", 500
 
 
 @bp.route("/getAToken")
 def auth_response():
-    if _oidc_auth_enabled():
+    if _msal_auth_enabled():
         if not _is_configured():
-            logger.error("oidc_callback misconfigured client credentials", extra=_log_extra())
+            logger.error("msal_callback misconfigured client credentials", extra=_log_extra())
             return "Auth configuration error: set CLIENT_ID and CLIENT_SECRET.", 500
         code = request.args.get("code")
         if not code:
-            logger.warning("oidc_callback missing authorization code", extra=_log_extra())
+            logger.warning("msal_callback missing authorization code", extra=_log_extra())
             return "Missing authorization code.", 400
         cache = msal.SerializableTokenCache()
         result = _build_msal_app(cache=cache).acquire_token_by_authorization_code(
@@ -220,7 +217,7 @@ def auth_response():
         )
         if "error" in result:
             logger.warning(
-                "oidc_callback error=%s desc=%s",
+                "msal_callback error=%s desc=%s",
                 result.get("error"),
                 result.get("error_description") or "",
                 extra=_log_extra(),
@@ -233,7 +230,7 @@ def auth_response():
         session["user_name"] = user_name
         session.modified = True
         logger.info(
-            "oidc_login success user=%s email=%s",
+            "msal_login success user=%s email=%s",
             user_name,
             user_email or "",
             extra=_log_extra(),
@@ -251,7 +248,7 @@ def logout():
         logger.info("logout user=%s", user_name, extra=_log_extra())
     if _dev_auth_enabled():
         return redirect(url_for("auth.login"))
-    if _oidc_auth_enabled():
+    if _msal_auth_enabled():
         return redirect(
             "https://login.microsoftonline.com/common/oauth2/v2.0/logout"
             f"?post_logout_redirect_uri={url_for('auth.logoffCompleted', _external=True)}"
@@ -277,7 +274,7 @@ def request_guard():
     if is_public_path(request.path):
         return None
 
-    if not (_dev_auth_enabled() or _oidc_auth_enabled()):
+    if not (_dev_auth_enabled() or _msal_auth_enabled()):
         logger.error("auth_mode unsupported mode=%s", _auth_mode(), extra=_log_extra())
         return "Unsupported AUTH_MODE. Use 'dev' or 'msal'.", 500
 
@@ -287,6 +284,10 @@ def request_guard():
 
     user_name = session.get("user_name")
     if user_name:
+        if _dev_auth_enabled() and not is_user_active(str(user_name)):
+            logger.info("request_guard inactive user=%s", user_name, extra=_log_extra())
+            session.clear()
+            return redirect(url_for("auth.login", next=request.path))
         add_user(str(user_name), password_hash="", exists_ok=True)
 
     return None

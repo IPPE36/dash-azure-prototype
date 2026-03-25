@@ -2,39 +2,31 @@
 # Design note: DB bootstrap happens once per process and is protected by a
 # Postgres advisory lock to avoid concurrent schema edits across workers.
 # We keep a small pool to suit low-concurrency workloads and limit connections.
-# Optional startup backups protect against accidental changes in dev/testing,
 # Default dev users are seeded only when DEV=true for quick local access.
+# To configure dev users, create dev_users.json at the repo root (ignored by git)
+# e.g. {"username": "admin", "password": "123", "role": "admin", "email": "admin@local.dev"}
 
+import json
 import logging
-import subprocess
 import zlib
 import threading
-from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
-from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, inspect, select, delete, text, func
+from sqlalchemy import Boolean, DateTime, Integer, JSON, String, create_engine, inspect, select, delete, text, func, update
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import DeclarativeBase, Mapped, sessionmaker, mapped_column
 from sqlalchemy.schema import CreateColumn
-from werkzeug.security import generate_password_hash
+from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.config import (
     DATABASE_URL,
-    DB_BACKUP_DIR,
-    DB_BACKUP_MAX_AGE_HOURS,
-    DB_BACKUP_ON_STARTUP,
     DEV,
+    LOGIN_MODE,
 )
-
-
 _CONFIGURED = False
 _LOCK = threading.Lock()
-_DEFAULT_DEV_USERS = (
-    ("root", "123", "admin", "root@local.dev"),
-    ("admin", "123", "admin", "admin@local.dev"),
-    ("user", "123", "user", "user@local.dev"),
-)
+_DEV_USERS_PATH = Path(__file__).resolve().parents[3] / "dev_users.json"
 
 Payload = dict[str, Any] | list[Any] | str | int | float | bool | None
 
@@ -98,59 +90,6 @@ class Tasks(Base):
     updated_at: Mapped[DateTime] = mapped_column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
 
 
-def _utc_now() -> datetime:
-    return datetime.now(timezone.utc)
-
-
-def _get_backup_dir() -> Path:
-    return Path(DB_BACKUP_DIR).expanduser().resolve()
-
-
-def _latest_backup_at() -> datetime | None:
-    backup_dir = _get_backup_dir()
-    if not backup_dir.exists():
-        return None
-    dumps = sorted(backup_dir.glob("*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
-    if not dumps:
-        return None
-    return datetime.fromtimestamp(dumps[0].stat().st_mtime, tz=timezone.utc)
-
-
-def _run_startup_backup() -> Path:
-    backup_dir = _get_backup_dir()
-    backup_dir.mkdir(parents=True, exist_ok=True)
-    ts = _utc_now().strftime("%d-%m-%Y")
-    dump_path = backup_dir / f"dash_{ts}.dump"
-    pg_dump_url = DATABASE_URL
-    if "://" in pg_dump_url and "+" in pg_dump_url.split("://", 1)[0]:
-        scheme, rest = pg_dump_url.split("://", 1)
-        pg_dump_url = f"{scheme.split('+', 1)[0]}://{rest}"
-    subprocess.run(
-        [
-            "pg_dump",
-            "--format=custom",
-            "--no-owner",
-            "--no-privileges",
-            "--file",
-            str(dump_path),
-            pg_dump_url,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    logger.info("startup DB backup created", extra={"dump_path": str(dump_path)})
-    return dump_path
-
-
-def _assert_backup_fresh() -> bool:
-    last = _latest_backup_at()
-    if last is None:
-        return False
-    age = _utc_now() - last
-    return age <= timedelta(hours=DB_BACKUP_MAX_AGE_HOURS)
-
-
 def _sync_columns(conn) -> None:
     inspector = inspect(conn)
     preparer = conn.dialect.identifier_preparer
@@ -172,34 +111,134 @@ def _sync_columns(conn) -> None:
             )
             conn.execute(text(f"ALTER TABLE {qualified_table} ADD COLUMN {col_def}"))
             logger.info("added missing DB column", extra={"table": table.name, "column": col.name})
-        for col_name in extra:
-            qualified_table = (
-                f"{preparer.quote_schema(table.schema)}.{preparer.quote(table.name)}"
-                if table.schema
-                else preparer.quote(table.name)
-            )
-            quoted_col = preparer.quote(col_name)
-            conn.execute(text(f"ALTER TABLE {qualified_table} DROP COLUMN IF EXISTS {quoted_col}"))
-            logger.info("dropped extra DB column", extra={"table": table.name, "column": col_name})
+        if extra:
+            logger.info("extra DB columns detected (not dropped)", extra={"table": table.name, "columns": extra})
+
+def _clear_stale_tasks(session) -> None:
+    result = session.execute(delete(Tasks).where(Tasks.status.in_(["PENDING", "RUNNING"])))
+    logger.info("removed stale tasks", extra={"deleted": result.rowcount})
 
 
-def _add_dev_users() -> None:
-    if SessionLocal is None:
+def _sync_devusers(session) -> None:
+    existing_count = session.scalar(select(func.count()).select_from(Users)) or 0
+    if existing_count == 0:
+        logger.info(
+            "no users found; create dev users via %s (see format in src/shared/db/core.py)",
+            str(_DEV_USERS_PATH),
+        )
+    users = _load_devusers_json()
+    if not users:
+        logger.info("no dev users configured; skipping dev seeding", extra={"path": str(_DEV_USERS_PATH)})
         return
-    with SessionLocal() as session:
-        for username, password, role, email in _DEFAULT_DEV_USERS:
-            existing = session.scalar(select(Users).where(Users.username == username))
-            if existing is None:
-                session.add(
-                    Users(
-                        username=username,
-                        email=email,
-                        password_hash=generate_password_hash(password),
-                        role=role,
-                        is_active=True,
-                    )
+    desired_usernames = {user["username"] for user in users}
+    upserted = 0
+    updated = 0
+    for user in users:
+        username = user["username"] or ""
+        password = user["password"] or ""
+        role = user["role"] or "user"
+        email = user["email"]
+        is_active = bool(user.get("is_active", True))
+        existing = session.scalar(select(Users).where(Users.username == username))
+        if existing is None:
+            session.add(
+                Users(
+                    username=username,
+                    email=email,
+                    password_hash=generate_password_hash(password),
+                    role=role,
+                    is_active=is_active,
                 )
-        session.commit()
+            )
+            upserted += 1
+            continue
+        changed = False
+        if not check_password_hash(existing.password_hash, password):
+            existing.password_hash = generate_password_hash(password)
+            changed = True
+        if existing.role != role:
+            existing.role = role
+            changed = True
+        if existing.email != email:
+            existing.email = email
+            changed = True
+        if existing.is_active != is_active:
+            existing.is_active = is_active
+            changed = True
+        if changed:
+            updated += 1
+    deactivated = 0
+    if desired_usernames:
+        inactive_rows = session.scalars(
+            select(Users).where(
+                Users.username.notin_(desired_usernames),
+                Users.is_active.is_(True),
+            )
+        )
+        for row in inactive_rows:
+            row.is_active = False
+            deactivated += 1
+    logger.info(
+        "dev users synced",
+        extra={"added": upserted, "updated": updated, "deactivated": deactivated},
+    )
+
+def _deactivate_devusers(session) -> None:
+    users = _load_devusers_json()
+    if not users:
+        logger.info("no dev users configured; skipping dev deactivation", extra={"path": str(_DEV_USERS_PATH)})
+        return
+    usernames = {user["username"] for user in users}
+    deactivated = session.execute(
+        update(Users)
+        .where(Users.username.in_(usernames), Users.is_active.is_(True))
+        .values(is_active=False)
+    ).rowcount or 0
+    logger.info(
+        "dev users deactivated for msal mode",
+        extra={"deactivated": deactivated},
+    )
+
+
+def _load_devusers_json() -> list[dict[str, str | None]]:
+    if not _DEV_USERS_PATH.exists():
+        return []
+    try:
+        payload = json.loads(_DEV_USERS_PATH.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        logger.warning(
+            "failed to read dev users json; skipping dev seeding",
+            extra={"path": str(_DEV_USERS_PATH), "error": str(exc)},
+        )
+        return []
+    if not isinstance(payload, list):
+        logger.warning(
+            "dev users json must be a list; skipping dev seeding",
+            extra={"path": str(_DEV_USERS_PATH), "type": type(payload).__name__},
+        )
+        return []
+    users: list[dict[str, str | None | bool]] = []
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+        username = str(entry.get("username", "")).strip()
+        password = str(entry.get("password", "")).strip()
+        if not username or not password:
+            continue
+        role = str(entry.get("role", "user")).strip() or "user"
+        email_value = entry.get("email")
+        email = str(email_value).strip() if email_value else None
+        is_active = bool(entry.get("is_active", True))
+        users.append(
+            {
+                "username": username,
+                "password": password,
+                "role": role,
+                "email": email,
+                "is_active": is_active,
+            }
+        )
+    return users
 
 
 def configure_db() -> None:
@@ -222,28 +261,18 @@ def _init_db() -> None:
         with engine.connect() as conn:
             conn.execute(text("SELECT pg_advisory_lock(:k)"), {"k": lock_key})
             try:
-                if DEV and DB_BACKUP_ON_STARTUP and not _assert_backup_fresh():
-                    try:
-                        _run_startup_backup()
-                    except FileNotFoundError:
-                        logger.warning("pg_dump executable not found; continuing without startup backup")
-                    except subprocess.CalledProcessError as exc:
-                        logger.warning(
-                            "startup DB backup failed; continuing app startup",
-                            extra={"stderr": (exc.stderr or "").strip(), "stdout": (exc.stdout or "").strip()},
-                        )
                 Base.metadata.create_all(bind=conn)
                 _sync_columns(conn)
-                result = conn.execute(
-                    delete(Tasks).where(Tasks.status.in_(["PENDING", "RUNNING"]))
-                )
-                logger.info("removed stale tasks", extra={"deleted": result.rowcount})
-                conn.commit()
+                with SessionLocal(bind=conn) as session:
+                    _clear_stale_tasks(session)
+                    if DEV and LOGIN_MODE == "dev":
+                        _sync_devusers(session)
+                    elif DEV and LOGIN_MODE == "msal":
+                        _deactivate_devusers(session)
+                    session.commit()
             finally:
                 conn.execute(text("SELECT pg_advisory_unlock(:k)"), {"k": lock_key})
     except DBAPIError:
         logger.exception("database schema initialization failed")
         raise
-    if DEV:
-        _add_dev_users()
     logger.info("database schema initialized")

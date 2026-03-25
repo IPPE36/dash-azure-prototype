@@ -1,4 +1,5 @@
 .env
-!.env.example
+dev_users.json
 ml/data/
 ml/models/
+!.example

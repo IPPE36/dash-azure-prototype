@@ -77,3 +77,17 @@ def get_user_email(username: str) -> str | None:
         return session.scalar(
             select(Users.email).where(Users.username == normalized)
         )
+
+
+def is_user_active(username: str) -> bool:
+    if SessionLocal is None:
+        return False
+    normalized = username.strip()
+    if not normalized:
+        return False
+    with SessionLocal() as session:
+        return bool(
+            session.scalar(
+                select(Users.is_active).where(Users.username == normalized)
+            )
+        )

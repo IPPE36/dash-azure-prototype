@@ -103,6 +103,9 @@ echo "TenantID: ${TENANT_ID}"
 echo "ClientID: ${CLIENT_ID}"
 echo "ClientSecret: ${CLIENT_SECRET}"
 echo "AAD app ready."
+LOCAL_REDIRECT_URI="http://localhost:${PORT:-8050}/getAToken"
+az ad app update --id "$CLIENT_ID" --web-redirect-uris "$LOCAL_REDIRECT_URI"
+echo "AAD redirect URI added: ${LOCAL_REDIRECT_URI}"
 
 # ---- Resource Group ----
 RG="rg-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}"
@@ -267,6 +270,7 @@ CELERY_BROKER_URL="$CELERY_REDIS_URL"
 CELERY_RESULT_BACKEND="$CELERY_REDIS_URL"
 DATABASE_URL="postgresql+psycopg://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require"
 DEV="false"
+LOGIN_MODE="msal"
 SCOPE=""  # "openid,profile"
 
 # Web (public)
@@ -300,6 +304,7 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
       DEV="$DEV" \
+      LOGIN_MODE="$LOGIN_MODE" \
       REDIRECT_URI="$REDIRECT_URI" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
@@ -330,6 +335,7 @@ else
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
       DEV="$DEV" \
+      LOGIN_MODE="$LOGIN_MODE" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CLIENT_ID=secretref:client-id \
@@ -470,7 +476,7 @@ WEB_APP_FQDN="$(az containerapp show \
 if [ -n "$WEB_APP_FQDN" ]; then
   echo "Web app URL: https://${WEB_APP_FQDN}"
   REDIRECT_URI="https://${WEB_APP_FQDN}/getAToken"
-  az ad app update --id "$CLIENT_ID" --web-redirect-uris "$REDIRECT_URI"
+  az ad app update --id "$CLIENT_ID" --web-redirect-uris "$REDIRECT_URI" "$LOCAL_REDIRECT_URI"
   echo "AAD redirect URI set: ${REDIRECT_URI}"
 else
   echo "WARN: Could not resolve web app FQDN. Check ingress settings for ${APP_WEB_NAME}."

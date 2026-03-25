@@ -8,8 +8,9 @@ services:
       - ${APP_ENV_FILE:-.env}
     volumes:
       - ./db_backups:/app/db_backups
+      - ./dev_users.json:/app/dev_users.json:ro
     ports:
-      - "8050:8050"
+      - "${PORT:-8050}:8050"
     depends_on:
       postgres:
         condition: service_healthy
@@ -63,7 +64,7 @@ services:
     environment:
       - POSTGRES_DB=${POSTGRES_DB:-appdb}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     ports:
       - "5432:5432"
     volumes:
@@ -73,6 +74,26 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  24hbackup:
+    image: postgres:16-alpine
+    env_file:
+      - ${APP_ENV_FILE:-.env}
+    environment:
+      - PGPASSWORD=${POSTGRES_PASSWORD}
+      - BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-86400}
+    volumes:
+      - ./db_backups:/backups
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      [
+        "sh",
+        "-c",
+        "while true; do ts=$$(date +%Y%m%d); pg_dump --format=custom --no-owner --no-privileges -h postgres -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-appdb} > /backups/postgres_$${ts}.dump; sleep $${BACKUP_INTERVAL_SECONDS:-86400}; done"
+      ]
+    restart: unless-stopped
 
 volumes:
   postgres_data:

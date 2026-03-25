@@ -29,6 +29,7 @@ from .config import (
     REDIRECT_URI,
     SCOPE,
     SECRET,
+    LOGIN_MODE,
 )
 
 configure_logs()
@@ -48,13 +49,16 @@ app = DashProxy(
 
 server = app.server
 server.secret_key = SECRET
+
 # ProxyFix respects X-Forwarded-* headers behind reverse proxies (e.g. Azure),
 # so URL generation and scheme detection remain correct.
 server.wsgi_app = ProxyFix(server.wsgi_app, x_proto=1, x_host=1)
+
 _cookie_name = f"{APP_NAME}".strip().lower().replace(" ", "_") or "app"
 _cookie_name = f"{_cookie_name}_session"
+
 server.config.update(
-    AUTH_MODE="dev" if DEV else "msal",
+    AUTH_MODE=LOGIN_MODE,
     CLIENT_ID=CLIENT_ID,
     CLIENT_SECRET=CLIENT_SECRET,
     AUTHORITY=AUTHORITY,
