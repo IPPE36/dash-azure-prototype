@@ -4,8 +4,8 @@ from shared.env import env_bool, env_list, env_str, get_int_env
 
 APP_NAME = env_str("APP_NAME", default="Suite")
 APP_VERSION = env_str("APP_VERSION", default="1.0")
-LOGIN_MODE = env_str("LOGIN_MODE", default="dev")
-SECRET = env_str("SECRET")
+AUTH_MODE = env_str("AUTH_MODE", default="dev")
+SECRET = env_str("SECRET", default="fallback-secret")
 DEV = env_bool("DEV", default=True)
 PORT = get_int_env("PORT", default=8050)
 CLIENT_ID = env_str("CLIENT_ID", default="")

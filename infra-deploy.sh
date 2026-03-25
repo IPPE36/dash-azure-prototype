@@ -270,8 +270,10 @@ CELERY_BROKER_URL="$CELERY_REDIS_URL"
 CELERY_RESULT_BACKEND="$CELERY_REDIS_URL"
 DATABASE_URL="postgresql+psycopg://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require"
 DEV="false"
-LOGIN_MODE="msal"
+AUTH_MODE="msal"
 SCOPE=""  # "openid,profile"
+SECRET="$(openssl rand -hex 32)"
+echo "Generated new secret: ${SECRET}"
 
 # Web (public)
 if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; then
@@ -293,7 +295,8 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       redis-url="$REDIS_URL" \
       client-id="$CLIENT_ID" \
       client-secret="$CLIENT_SECRET" \
-      tenant-id="$TENANT_ID"
+      tenant-id="$TENANT_ID" \
+      flask-secret="$SECRET"
   az containerapp update \
     --name "$APP_WEB_NAME" \
     --resource-group "$RG" \
@@ -304,13 +307,14 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
       DEV="$DEV" \
-      LOGIN_MODE="$LOGIN_MODE" \
+      AUTH_MODE="$AUTH_MODE" \
       REDIRECT_URI="$REDIRECT_URI" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CLIENT_ID=secretref:client-id \
       CLIENT_SECRET=secretref:client-secret \
-      TENANT_ID=secretref:tenant-id
+      TENANT_ID=secretref:tenant-id \
+      SECRET=secretref:flask-secret
 else
   echo "Creating web app: ${APP_WEB_NAME}"
   az containerapp create \
@@ -329,18 +333,20 @@ else
       client-id="$CLIENT_ID" \
       client-secret="$CLIENT_SECRET" \
       tenant-id="$TENANT_ID" \
+      flask-secret="$SECRET" \
     --env-vars \
       APP_NAME="$APP_NAME" \
       APP_VERSION="$APP_VERSION" \
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
       DEV="$DEV" \
-      LOGIN_MODE="$LOGIN_MODE" \
+      AUTH_MODE="$AUTH_MODE" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CLIENT_ID=secretref:client-id \
       CLIENT_SECRET=secretref:client-secret \
-      TENANT_ID=secretref:tenant-id
+      TENANT_ID=secretref:tenant-id \
+      SECRET=secretref:flask-secret
   WEB_APP_FQDN="$(az containerapp show \
     --name "$APP_WEB_NAME" \
     --resource-group "$RG" \

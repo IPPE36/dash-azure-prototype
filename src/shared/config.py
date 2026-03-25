@@ -4,7 +4,7 @@ from shared.env import env_bool, env_str
 
 DATABASE_URL = env_str("DATABASE_URL")
 DEV = env_bool("DEV", default=True)
-LOGIN_MODE = env_str("LOGIN_MODE", default="dev")
+AUTH_MODE = env_str("AUTH_MODE", default="dev")
 APP_VERSION = env_str("APP_VERSION", default="1.0")
 CELERY_BROKER_URL = env_str("CELERY_BROKER_URL", default="redis://redis:6379/0")
 CELERY_RESULT_BACKEND = env_str("CELERY_RESULT_BACKEND", default="redis://redis:6379/0")

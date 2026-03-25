@@ -22,7 +22,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from shared.config import (
     DATABASE_URL,
     DEV,
-    LOGIN_MODE,
+    AUTH_MODE,
 )
 _CONFIGURED = False
 _LOCK = threading.Lock()
@@ -265,9 +265,9 @@ def _init_db() -> None:
                 _sync_columns(conn)
                 with SessionLocal(bind=conn) as session:
                     _clear_stale_tasks(session)
-                    if DEV and LOGIN_MODE == "dev":
+                    if DEV and AUTH_MODE == "dev":
                         _sync_devusers(session)
-                    elif DEV and LOGIN_MODE == "msal":
+                    elif DEV and AUTH_MODE == "msal":
                         _deactivate_devusers(session)
                     session.commit()
             finally:

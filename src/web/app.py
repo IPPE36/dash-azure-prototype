@@ -29,7 +29,7 @@ from .config import (
     REDIRECT_URI,
     SCOPE,
     SECRET,
-    LOGIN_MODE,
+    AUTH_MODE,
 )
 
 configure_logs()
@@ -58,7 +58,7 @@ _cookie_name = f"{APP_NAME}".strip().lower().replace(" ", "_") or "app"
 _cookie_name = f"{_cookie_name}_session"
 
 server.config.update(
-    AUTH_MODE=LOGIN_MODE,
+    AUTH_MODE=AUTH_MODE,
     CLIENT_ID=CLIENT_ID,
     CLIENT_SECRET=CLIENT_SECRET,
     AUTHORITY=AUTHORITY,

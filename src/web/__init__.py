@@ -13,7 +13,7 @@ from .config import (
     SCOPE,
     SECRET,
     TENANT_ID,
-    LOGIN_MODE,
+    AUTH_MODE,
 )
 
 __all__ = [
@@ -31,5 +31,5 @@ __all__ = [
     "SCOPE",
     "SECRET",
     "TENANT_ID",
-    "LOGIN_MODE",
+    "AUTH_MODE",
 ]
