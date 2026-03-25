@@ -117,7 +117,7 @@ echo "ResourceGroup: ${RG}"
 POSTGRES_SERVER="pg-${APP_NAME}-${ENVIRONMENT}-${REGION_SHORT}"
 POSTGRES_DB="${APP_NAME}"
 POSTGRES_ADMIN="pgadmin"
-POSTGRES_PASSWORD="tKELn3cWe3P8yPVIJ6eu"  # "$(openssl rand -base64 24 | tr -d '=+/' | cut -c1-20)"
+POSTGRES_PASSWORD="tKELn3cWe3P8yPVIJ6eu"  # "${POSTGRES_PASSWORD:-$(openssl rand -hex 32)}"
 echo "PostgresPassword (STORE!): ${POSTGRES_PASSWORD}"
 echo "Creating Postgre Flexible Server..."
 if az_exists postgres flexible-server show --resource-group "$RG" --name "$POSTGRES_SERVER"; then
@@ -272,7 +272,7 @@ DATABASE_URL="postgresql+psycopg://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POST
 DEV="false"
 AUTH_MODE="msal"
 SCOPE=""  # "openid,profile"
-SECRET="$(openssl rand -hex 32)"
+SECRET="${SECRET:-$(openssl rand -hex 32)}"
 echo "Generated new secret: ${SECRET}"
 
 # Web (public)
@@ -311,6 +311,7 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       REDIRECT_URI="$REDIRECT_URI" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
+      CELERY_RESULT_BACKEND=secretref:redis-url \
       CLIENT_ID=secretref:client-id \
       CLIENT_SECRET=secretref:client-secret \
       TENANT_ID=secretref:tenant-id \
@@ -343,6 +344,7 @@ else
       AUTH_MODE="$AUTH_MODE" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
+      CELERY_RESULT_BACKEND=secretref:redis-url \
       CLIENT_ID=secretref:client-id \
       CLIENT_SECRET=secretref:client-secret \
       TENANT_ID=secretref:tenant-id \
