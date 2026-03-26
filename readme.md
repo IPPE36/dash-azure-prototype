@@ -9,6 +9,7 @@ az group create --name <resource-group-name> --location <location>  (create a re
 e.g. rg-mweapp-dev-weu  (dev environment, western europe)
 e.g. westeurope
 
+docker compose run --rm web alembic revision --autogenerate -m "initial schema"
 
 # ========================================
 # CONFIGURATION

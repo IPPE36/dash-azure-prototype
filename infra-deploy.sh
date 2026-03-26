@@ -273,6 +273,7 @@ DESKTOP="false"
 AUTH_MODE="msal"
 SCOPE=""  # "openid,profile"
 SECRET="${SECRET:-$(openssl rand -hex 32)}"
+RUN_MIGRATIONS="${RUN_MIGRATIONS:-true}"
 echo "Generated new secret: ${SECRET}"
 
 # Web (public)
@@ -309,6 +310,7 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       DESKTOP="$DESKTOP" \
       AUTH_MODE="$AUTH_MODE" \
       REDIRECT_URI="$REDIRECT_URI" \
+      RUN_MIGRATIONS="$RUN_MIGRATIONS" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CELERY_RESULT_BACKEND=secretref:redis-url \
@@ -342,6 +344,7 @@ else
       SCOPE="$SCOPE" \
       DESKTOP="$DESKTOP" \
       AUTH_MODE="$AUTH_MODE" \
+      RUN_MIGRATIONS="$RUN_MIGRATIONS" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
       CELERY_RESULT_BACKEND=secretref:redis-url \

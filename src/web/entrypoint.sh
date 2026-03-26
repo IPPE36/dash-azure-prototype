@@ -1,8 +1,13 @@
 #!/bin/sh
 set -e
 
-echo "[entrypoint] Running DB bootstrap..."
+if [ "$RUN_MIGRATIONS" = "true" ]; then
+  echo "[entrypoint] RUN_MIGRATIONS=true -> running migrations..."
+  python -m shared.db.migrations
+fi
+
+echo "[entrypoint] running DB bootstrap..."
 python -m shared.db.bootstrap
 
-echo "[entrypoint] Starting application..."
+echo "[entrypoint] starting application..."
 exec "$@"

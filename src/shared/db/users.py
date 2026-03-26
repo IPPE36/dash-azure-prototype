@@ -19,6 +19,16 @@ def auth_dev_user(username: str, password: str) -> bool:
         return check_password_hash(row.password_hash, password)
 
 
+def user_exists(username: str) -> bool:
+    if SessionLocal is None:
+        return False
+    normalized = username.strip()
+    if not normalized:
+        return False
+    with SessionLocal() as session:
+        return session.scalar(select(Users.user_id).where(Users.username == normalized)) is not None
+
+
 def add_user(
     username: str,
     password_hash: str = "",

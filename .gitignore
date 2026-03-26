@@ -1,5 +1,6 @@
 .env
+*.dump
 dev_users.json
 ml/data/
 ml/models/
-!.example
+alembic/*.log

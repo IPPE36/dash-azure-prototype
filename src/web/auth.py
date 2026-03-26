@@ -178,7 +178,8 @@ def login():
 
         username = request.form.get("username", "").strip()
         password = request.form.get("password", "")
-        if auth_dev_user(username, password):
+        ok = auth_dev_user(username, password)
+        if ok:
             add_user(username, exists_ok=True)
             session["dev_authenticated"] = True
             session["user_name"] = username

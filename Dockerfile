@@ -12,14 +12,18 @@ COPY requirements/ ./requirements/
 RUN pip install --no-cache-dir -r $REQUIREMENTS
 
 # run app processes as non-root (Celery warns when started as root)
-RUN addgroup --system app && adduser --system --ingroup app app
+RUN addgroup --system app && adduser --system --ingroup app --home /home/app app
 
 # copy code
 COPY --chown=app:app src/ /app/src/
+# copy alembic config and migrations
+COPY --chown=app:app alembic.ini /app/alembic.ini
+COPY --chown=app:app alembic/ /app/alembic/
 # copy trained models (baked into image)
 COPY --chown=app:app ${MODEL_DIR}/ /app/models/
 
 RUN chown -R app:app /app
+RUN mkdir -p /home/app && chown -R app:app /home/app
 RUN chmod +x /app/src/worker/entrypoint.sh
 RUN chmod +x /app/src/web/entrypoint.sh
 
@@ -27,6 +31,7 @@ RUN chmod +x /app/src/web/entrypoint.sh
 ENV PYTHONPATH=/app/src
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
+ENV HOME=/home/app
 
 USER app
 

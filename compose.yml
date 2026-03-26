@@ -84,6 +84,8 @@ services:
     environment:
       - PGPASSWORD=${POSTGRES_PASSWORD}
       - BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-86400}
+    mem_limit: 128m
+    cpus: "0.1"
     volumes:
       - ./db_backups:/backups
       - ./scripts/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
