@@ -86,15 +86,11 @@ services:
       - BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-86400}
     volumes:
       - ./db_backups:/backups
+      - ./scripts/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
     depends_on:
       postgres:
         condition: service_healthy
-    command:
-      [
-        "sh",
-        "-c",
-        "while true; do ts=$$(date +%Y%m%d); pg_dump --format=custom --no-owner --no-privileges -h postgres -U $${POSTGRES_USER:-postgres} $${POSTGRES_DB:-appdb} > /backups/postgres_$${ts}.dump; sleep $${BACKUP_INTERVAL_SECONDS:-86400}; done"
-      ]
+    command: ["sh", "/usr/local/bin/backup-loop.sh"]
     restart: unless-stopped
 
 volumes:
