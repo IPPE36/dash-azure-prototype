@@ -3,7 +3,7 @@ from .config import (
     CELERY_BROKER_URL,
     CELERY_RESULT_BACKEND,
     DATABASE_URL,
-    DEV,
+    DESKTOP,
     LOG_FORMAT,
     LOG_LEVEL,
 )
@@ -15,7 +15,7 @@ __all__ = [
     "CELERY_BROKER_URL",
     "CELERY_RESULT_BACKEND",
     "DATABASE_URL",
-    "DEV",
+    "DESKTOP",
     "LOG_FORMAT",
     "LOG_LEVEL",
     "env_bool",

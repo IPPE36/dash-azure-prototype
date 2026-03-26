@@ -9,9 +9,9 @@ from shared.db import get_user_id, add_task, get_queue_position, get_user_task_c
 from shared.celery_tasks import long_task, short_task
 from web.auth import get_user_name
 from web.callbacks import toast_payload
+from web.plot_utils import scatter3d_figure
 from web.config import MAX_USER_TASKS_ACTIVE, MAX_USER_TASKS_TOTAL
 from web.theme import CIRCLE_TAG
-from web.plot_utils import scatter3d_figure
 
 
 def register_callbacks_jobs():

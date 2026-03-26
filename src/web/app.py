@@ -5,6 +5,7 @@
 # DashProxy transforms enable multi-output callbacks and trigger-only callbacks
 
 import redis
+import logging
 
 from flask_session import Session
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -12,7 +13,6 @@ import dash_bootstrap_components as dbc
 from dash_extensions.enrich import dcc, html, DashProxy, TriggerTransform, MultiplexerTransform, page_container
 from dash_breakpoints_new import WindowBreakpoints
 
-from shared.db import configure_db
 from shared.log import configure_logs
 from .auth import bp as auth_bp, request_guard
 from .layouts import build_global_toast, build_global_navbar, build_global_nav_offcanvas
@@ -24,16 +24,16 @@ from .config import (
     CELERY_BROKER_URL,
     CLIENT_ID,
     CLIENT_SECRET,
-    DEV,
+    DESKTOP,
     REDIRECT_PATH,
     REDIRECT_URI,
     SCOPE,
     SECRET,
     AUTH_MODE,
+    LOG_LEVEL_SERVER,
 )
 
 configure_logs()
-configure_db()
 
 app = DashProxy(
     name=__name__,
@@ -49,6 +49,8 @@ app = DashProxy(
 
 server = app.server
 server.secret_key = SECRET
+log_level_server = getattr(logging, LOG_LEVEL_SERVER, logging.INFO)
+server.logger.setLevel(log_level_server)
 
 # ProxyFix respects X-Forwarded-* headers behind reverse proxies (e.g. Azure),
 # so URL generation and scheme detection remain correct.
@@ -72,7 +74,7 @@ server.config.update(
     SESSION_COOKIE_NAME=_cookie_name,
     SESSION_PERMANENT=False,
     SESSION_USE_SIGNER=True,
-    SESSION_COOKIE_SECURE=not DEV,
+    SESSION_COOKIE_SECURE=not DESKTOP,
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SAMESITE="Lax",
 )

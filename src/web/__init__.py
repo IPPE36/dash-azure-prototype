@@ -3,9 +3,10 @@ from .config import (
     APP_VERSION,
     AUTHORITY,
     CELERY_BROKER_URL,
+    CELERY_RESULT_BACKEND,
     CLIENT_ID,
     CLIENT_SECRET,
-    DEV,
+    DESKTOP,
     MAX_USER_TASKS_ACTIVE,
     MAX_USER_TASKS_TOTAL,
     REDIRECT_PATH,
@@ -14,6 +15,7 @@ from .config import (
     SECRET,
     TENANT_ID,
     AUTH_MODE,
+    LOG_LEVEL_SERVER,
 )
 
 __all__ = [
@@ -21,9 +23,10 @@ __all__ = [
     "APP_VERSION",
     "AUTHORITY",
     "CELERY_BROKER_URL",
+    "CELERY_RESULT_BACKEND",
     "CLIENT_ID",
     "CLIENT_SECRET",
-    "DEV",
+    "DESKTOP",
     "MAX_USER_TASKS_ACTIVE",
     "MAX_USER_TASKS_TOTAL",
     "REDIRECT_PATH",
@@ -32,4 +35,5 @@ __all__ = [
     "SECRET",
     "TENANT_ID",
     "AUTH_MODE",
+    "LOG_LEVEL_SERVER",
 ]

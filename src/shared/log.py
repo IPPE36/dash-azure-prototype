@@ -41,7 +41,6 @@ def configure_logs() -> None:
         return
     with _LOCK:
         level = getattr(logging, LOG_LEVEL, logging.INFO)
-
         root = logging.getLogger()
         root.setLevel(level)
 

@@ -37,16 +37,16 @@ def build_layout_jobs():
         row_list=[
             ("Strength", 25, 0, 100, False),
             ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, True),
+            ("Locked value", 15, 0, 50, False),
             ("Pressure", 40, 10, 80, False),
             ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, True),
+            ("Locked value", 15, 0, 50, False),
             ("Pressure", 40, 10, 80, False),
             ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, True),
+            ("Locked value", 15, 0, 50, False),
             ("Pressure", 40, 10, 80, False),
             ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, True),
+            ("Locked value", 15, 0, 50, False),
         ]
     )
 

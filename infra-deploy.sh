@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_NAME="suite"
-APP_VERSION="1.0"
+APP_NAME="${APP_NAME:-suite}"
+APP_VERSION="${APP_VERSION:-1.0}"
 APP_ID=""  # Optional: set to an existing AAD appId to reuse strictly
 SUBSCRIPTION_NAME="Azure subscription 1"
 ENVIRONMENT="dev"  # dev | pro
@@ -269,7 +269,7 @@ CELERY_REDIS_URL="rediss://:${REDIS_KEY}@${REDIS_HOST}:6380/0?ssl_cert_reqs=requ
 CELERY_BROKER_URL="$CELERY_REDIS_URL"
 CELERY_RESULT_BACKEND="$CELERY_REDIS_URL"
 DATABASE_URL="postgresql+psycopg://${POSTGRES_ADMIN}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:5432/${POSTGRES_DB}?sslmode=require"
-DEV="false"
+DESKTOP="false"
 AUTH_MODE="msal"
 SCOPE=""  # "openid,profile"
 SECRET="${SECRET:-$(openssl rand -hex 32)}"
@@ -306,7 +306,7 @@ if az_exists containerapp show --name "$APP_WEB_NAME" --resource-group "$RG"; th
       APP_VERSION="$APP_VERSION" \
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
-      DEV="$DEV" \
+      DESKTOP="$DESKTOP" \
       AUTH_MODE="$AUTH_MODE" \
       REDIRECT_URI="$REDIRECT_URI" \
       DATABASE_URL=secretref:db-url \
@@ -340,7 +340,7 @@ else
       APP_VERSION="$APP_VERSION" \
       AUTHORITY="$AUTHORITY" \
       SCOPE="$SCOPE" \
-      DEV="$DEV" \
+      DESKTOP="$DESKTOP" \
       AUTH_MODE="$AUTH_MODE" \
       DATABASE_URL=secretref:db-url \
       CELERY_BROKER_URL=secretref:redis-url \
@@ -383,7 +383,7 @@ if az_exists containerapp show --name "$APP_WORKER_DEFAULT_NAME" --resource-grou
     --max-replicas 1 \
     --set-env-vars \
       APP_VERSION="$APP_VERSION" \
-      DEV="$DEV" \
+      DESKTOP="$DESKTOP" \
       MODEL_PATH="/app/models" \
       WORKER_QUEUE="default" \
       WORKER_NAME="default@%h" \
@@ -408,7 +408,7 @@ else
       redis-url="$REDIS_URL" \
     --env-vars \
       APP_VERSION="$APP_VERSION" \
-      DEV="$DEV" \
+      DESKTOP="$DESKTOP" \
       MODEL_PATH="/app/models" \
       WORKER_QUEUE="default" \
       WORKER_NAME="default@%h" \
@@ -438,7 +438,7 @@ if az_exists containerapp show --name "$APP_WORKER_BACKGROUND_NAME" --resource-g
     --max-replicas 1 \
     --set-env-vars \
       APP_VERSION="$APP_VERSION" \
-      DEV="$DEV" \
+      DESKTOP="$DESKTOP" \
       MODEL_PATH="/app/models" \
       WORKER_QUEUE="background" \
       WORKER_NAME="long@%h" \
@@ -463,7 +463,7 @@ else
       redis-url="$REDIS_URL" \
     --env-vars \
       APP_VERSION="$APP_VERSION" \
-      DEV="$DEV" \
+      DESKTOP="$DESKTOP" \
       MODEL_PATH="/app/models" \
       WORKER_QUEUE="background" \
       WORKER_NAME="long@%h" \

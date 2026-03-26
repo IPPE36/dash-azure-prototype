@@ -18,8 +18,10 @@ RUN addgroup --system app && adduser --system --ingroup app app
 COPY --chown=app:app src/ /app/src/
 # copy trained models (baked into image)
 COPY --chown=app:app ${MODEL_DIR}/ /app/models/
+
 RUN chown -R app:app /app
 RUN chmod +x /app/src/worker/entrypoint.sh
+RUN chmod +x /app/src/web/entrypoint.sh
 
 # make /app/src importable: "import shared", "import web"
 ENV PYTHONPATH=/app/src
@@ -29,6 +31,9 @@ ENV PYTHONDONTWRITEBYTECODE=1
 USER app
 
 EXPOSE 8050
+
+# bootsrapping
+ENTRYPOINT ["/app/src/web/entrypoint.sh"]
 
 # default = web; compose overrides for worker
 CMD ["gunicorn", "-b", "0.0.0.0:8050", "web.app:server", "--workers", "2", "--threads", "4"]
