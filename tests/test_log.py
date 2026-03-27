@@ -2,6 +2,7 @@ import json
 import logging
 import sys
 
+from shared import log as log_mod
 from shared.log import JsonFormatter, log_timed, log_timed_block
 
 
@@ -103,3 +104,82 @@ def test_log_timed_block_failure_logs_failed(caplog):
         pass
 
     assert any("failed block" in record.message for record in caplog.records)
+
+
+def test_configure_logs_json_sets_json_formatter():
+    root = logging.getLogger()
+    old_handlers = list(root.handlers)
+    old_level = root.level
+    old_configured = log_mod._CONFIGURED
+    old_format = log_mod.LOG_FORMAT
+    old_level_setting = log_mod.LOG_LEVEL
+    try:
+        root.handlers.clear()
+        log_mod._CONFIGURED = False
+        log_mod.LOG_FORMAT = "json"
+        log_mod.LOG_LEVEL = "INFO"
+
+        log_mod.configure_logs()
+
+        assert len(root.handlers) == 1
+        assert isinstance(root.handlers[0].formatter, JsonFormatter)
+    finally:
+        root.handlers.clear()
+        root.handlers.extend(old_handlers)
+        root.setLevel(old_level)
+        log_mod._CONFIGURED = old_configured
+        log_mod.LOG_FORMAT = old_format
+        log_mod.LOG_LEVEL = old_level_setting
+
+
+def test_configure_logs_console_sets_standard_formatter():
+    root = logging.getLogger()
+    old_handlers = list(root.handlers)
+    old_level = root.level
+    old_configured = log_mod._CONFIGURED
+    old_format = log_mod.LOG_FORMAT
+    old_level_setting = log_mod.LOG_LEVEL
+    try:
+        root.handlers.clear()
+        log_mod._CONFIGURED = False
+        log_mod.LOG_FORMAT = "console"
+        log_mod.LOG_LEVEL = "INFO"
+
+        log_mod.configure_logs()
+
+        assert len(root.handlers) == 1
+        assert isinstance(root.handlers[0].formatter, logging.Formatter)
+        assert not isinstance(root.handlers[0].formatter, JsonFormatter)
+    finally:
+        root.handlers.clear()
+        root.handlers.extend(old_handlers)
+        root.setLevel(old_level)
+        log_mod._CONFIGURED = old_configured
+        log_mod.LOG_FORMAT = old_format
+        log_mod.LOG_LEVEL = old_level_setting
+
+
+def test_configure_logs_idempotent():
+    root = logging.getLogger()
+    old_handlers = list(root.handlers)
+    old_level = root.level
+    old_configured = log_mod._CONFIGURED
+    old_format = log_mod.LOG_FORMAT
+    old_level_setting = log_mod.LOG_LEVEL
+    try:
+        root.handlers.clear()
+        log_mod._CONFIGURED = False
+        log_mod.LOG_FORMAT = "console"
+        log_mod.LOG_LEVEL = "INFO"
+
+        log_mod.configure_logs()
+        log_mod.configure_logs()
+
+        assert len(root.handlers) == 1
+    finally:
+        root.handlers.clear()
+        root.handlers.extend(old_handlers)
+        root.setLevel(old_level)
+        log_mod._CONFIGURED = old_configured
+        log_mod.LOG_FORMAT = old_format
+        log_mod.LOG_LEVEL = old_level_setting

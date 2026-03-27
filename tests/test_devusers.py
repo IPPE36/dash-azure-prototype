@@ -61,3 +61,90 @@ def test_load_devusers_json_filters_and_normalizes(monkeypatch, tmp_path):
             "is_active": True,
         },
     ]
+
+
+def test_load_devusers_json_boolean_coercion(monkeypatch, tmp_path):
+    payload = [
+        {"username": "eva", "password": "pw", "is_active": ""},
+        {"username": "zoe", "password": "pw", "is_active": "yes"},
+    ]
+    path = tmp_path / "dev_users.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(core, "_DEV_USERS_PATH", path)
+
+    users = core._load_devusers_json()
+
+    assert users == [
+        {
+            "username": "eva",
+            "password": "pw",
+            "role": "user",
+            "email": None,
+            "is_active": False,
+        },
+        {
+            "username": "zoe",
+            "password": "pw",
+            "role": "user",
+            "email": None,
+            "is_active": True,
+        },
+    ]
+
+
+def test_load_devusers_json_allows_duplicates(monkeypatch, tmp_path):
+    payload = [
+        {"username": "dup", "password": "one"},
+        {"username": "dup", "password": "two"},
+    ]
+    path = tmp_path / "dev_users.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(core, "_DEV_USERS_PATH", path)
+
+    users = core._load_devusers_json()
+
+    assert users == [
+        {
+            "username": "dup",
+            "password": "one",
+            "role": "user",
+            "email": None,
+            "is_active": True,
+        },
+        {
+            "username": "dup",
+            "password": "two",
+            "role": "user",
+            "email": None,
+            "is_active": True,
+        },
+    ]
+
+
+def test_load_devusers_json_email_normalization(monkeypatch, tmp_path):
+    payload = [
+        {"username": "alice", "password": "pw", "email": " alice@example.com "},
+        {"username": "bob", "password": "pw", "email": ""},
+    ]
+    path = tmp_path / "dev_users.json"
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    monkeypatch.setattr(core, "_DEV_USERS_PATH", path)
+
+    users = core._load_devusers_json()
+
+    assert users == [
+        {
+            "username": "alice",
+            "password": "pw",
+            "role": "user",
+            "email": "alice@example.com",
+            "is_active": True,
+        },
+        {
+            "username": "bob",
+            "password": "pw",
+            "role": "user",
+            "email": None,
+            "is_active": True,
+        },
+    ]

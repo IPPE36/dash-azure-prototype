@@ -101,10 +101,15 @@ services:
     build:
       context: .
       args:
-        REQUIREMENTS: requirements/base.txt
+        REQUIREMENTS: requirements/test.txt
     entrypoint: []
     env_file:
       - ${APP_ENV_FILE:-.env}
+    environment:
+      - RUN_CELERY_TESTS=${RUN_CELERY_TESTS:-true}
+      - RUN_REDIS_TESTS=${RUN_REDIS_TESTS:-true}
+      - RUN_POSTGRE_TESTS=${RUN_POSTGRE_TESTS:-true}
+      - DATABASE_URL=${DATABASE_URL:-true}
     volumes:
       - ./backups:/app/db_backups
       - ./dev_users.json:/app/dev_users.json:ro

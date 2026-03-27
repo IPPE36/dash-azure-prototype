@@ -60,12 +60,9 @@ def test_get_int_env_valid(monkeypatch):
 
 def test_config_defaults(monkeypatch):
     monkeypatch.delenv("DESKTOP", raising=False)
-    monkeypatch.delenv("APP_VERSION", raising=False)
     monkeypatch.delenv("AUTH_MODE", raising=False)
     monkeypatch.delenv("CELERY_BROKER_URL", raising=False)
     monkeypatch.delenv("CELERY_RESULT_BACKEND", raising=False)
-    monkeypatch.delenv("LOG_LEVEL", raising=False)
-    monkeypatch.delenv("LOG_FORMAT", raising=False)
     monkeypatch.delenv("DATABASE_URL", raising=False)
 
     import shared.config as config

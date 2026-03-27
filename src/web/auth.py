@@ -163,7 +163,7 @@ def get_user_email() -> str | None:
 def get_initials(name: str | None) -> str:
     if not name:
         return "U"
-    parts = [p for p in re.split(r"[\\s._-]+", name.strip()) if p]
+    parts = [p for p in re.split(r"[\s._-]+", name.strip()) if p]
     if not parts:
         return "U"
     if len(parts) == 1:

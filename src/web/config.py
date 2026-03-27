@@ -20,3 +20,4 @@ CELERY_RESULT_BACKEND = env_str("CELERY_RESULT_BACKEND", default="redis://redis:
 MAX_USER_TASKS_ACTIVE = get_int_env("MAX_USER_TASKS_ACTIVE", default=3, amin=1)
 MAX_USER_TASKS_TOTAL = get_int_env("MAX_USER_TASKS_TOTAL", default=50, amin=1)
 LOG_LEVEL_SERVER = env_str("LOG_LEVEL_SERVER", default="INFO").upper()
+RUN_MIGRATIONS = env_bool("RUN_MIGRATIONS", default=True)
