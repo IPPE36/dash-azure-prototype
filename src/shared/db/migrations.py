@@ -1,4 +1,10 @@
 # src/shared/db/migrations.py
+# Design notes (DB changes):
+# - Update SQLAlchemy models in `src/shared/db/core.py` first.
+# - Generate a new Alembic revision (`alembic revision --autogenerate -m "..."`).
+# - Review the new file under `alembic/versions/` and adjust if needed.
+# - Apply it with `alembic upgrade head` (entrypoint runs this when RUN_MIGRATIONS=true).
+# - Data seeding (dev users, cleanup) is handled separately in `shared.db.bootstrap`.
 
 import logging
 import os

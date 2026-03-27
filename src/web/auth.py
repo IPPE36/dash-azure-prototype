@@ -21,6 +21,7 @@ _PUBLIC_PATH_PREFIXES = (
     "/logoffCompleted",
     "/assets/",
     "/_dash-",
+    "/favicon.ico",
     "/_favicon.ico",
     "/static/",
     "/getAToken",

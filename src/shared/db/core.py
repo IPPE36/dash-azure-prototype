@@ -1,3 +1,10 @@
+# src/shared/db/core.py
+
+# Design notes (DB changes):
+# - Model changes here do NOT update the database automatically.
+# - After changing models, create a new Alembic revision and run `alembic upgrade head`.
+# - Startup flow: `shared.db.migrations` updates schema; `shared.db.bootstrap` seeds data.
+
 import json
 import logging
 import threading
@@ -16,11 +23,9 @@ from sqlalchemy import (
     select,
     delete,
     text,
-    update,
     func,
 )
 from sqlalchemy.exc import DBAPIError
-from sqlalchemy.engine import make_url
 from sqlalchemy.orm import DeclarativeBase, Mapped, sessionmaker, mapped_column
 from werkzeug.security import check_password_hash, generate_password_hash
 

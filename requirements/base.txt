@@ -4,3 +4,4 @@ redis
 SQLAlchemy
 werkzeug
 alembic[tz]
+pytest

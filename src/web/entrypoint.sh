@@ -1,5 +1,5 @@
 #!/bin/sh
-set -e
+set -eu
 
 if [ "$RUN_MIGRATIONS" = "true" ]; then
   echo "[entrypoint] RUN_MIGRATIONS=true -> running migrations..."

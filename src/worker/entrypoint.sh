@@ -7,6 +7,7 @@ NAME="${WORKER_NAME:-worker@%h}"
 LOGLEVEL="${WORKER_LOGLEVEL:-INFO}"
 CONCURRENCY="${WORKER_CONCURRENCY:-1}"
 
+echo "[entrypoint] starting worker..."
 exec celery -A "$APP" worker \
   --loglevel="$LOGLEVEL" \
   -Q "$QUEUE" \
