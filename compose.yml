@@ -7,9 +7,12 @@ services:
     image: dash-azure-prototype-web
     env_file:
       - ${APP_ENV_FILE:-.env}
+    environment:
+      - TRAIN_DATA_PATH=${TRAIN_DATA_PATH:-/mnt/training_data}
     volumes:
       - ./backups:/app/db_backups
       - ./dev_users.json:/app/dev_users.json:ro
+      - ${TRAIN_DATA_PATH:-./training_data}:/mnt/training_data:ro
     ports:
       - "${PORT:-8050}:8050"
     depends_on:
@@ -27,8 +30,11 @@ services:
     command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "default", "--concurrency=1", "-n", "default@%h"]
     env_file:
       - ${APP_ENV_FILE:-.env}
+    environment:
+      - TRAIN_DATA_PATH=${TRAIN_DATA_PATH:-/mnt/training_data}
     volumes:
       - ./backups:/app/db_backups
+      - ${TRAIN_DATA_PATH:-./training_data}:/mnt/training_data:ro
     depends_on:
       postgres:
         condition: service_healthy
@@ -44,8 +50,11 @@ services:
     command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "background", "--concurrency=1", "-n", "long@%h"]
     env_file:
       - ${APP_ENV_FILE:-.env}
+    environment:
+      - TRAIN_DATA_PATH=${TRAIN_DATA_PATH:-/mnt/training_data}
     volumes:
       - ./backups:/app/db_backups
+      - ${TRAIN_DATA_PATH:-./training_data}:/mnt/training_data:ro
     depends_on:
       postgres:
         condition: service_healthy
