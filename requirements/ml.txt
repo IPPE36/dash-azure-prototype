@@ -7,3 +7,5 @@ torchvision
 torchaudio
 joblib
 gpytorch
+jupyter
+ipykernel 

@@ -18,12 +18,12 @@ class ArtifactIO:
         config.json
         model_state.pt
         preprocessors.joblib
-        aux_data.pt
+        aux.pt
     """
     CONFIG_FILENAME = "config.json"
     STATE_FILENAME = "model_state.pt"
     PREP_FILENAME = "preprocessors.joblib"
-    AUX_FILENAME = "aux_data.pt"
+    AUX_FILENAME = "aux.pt"
 
     @classmethod
     def save(
@@ -33,7 +33,7 @@ class ArtifactIO:
         model, 
         spec: ModelConfig, 
         prep: PreprocessConfig = None,
-        aux_data: AuxilaryData = None,
+        aux: AuxilaryData = None,
     ) -> None:
         
         artifact_dir = Path(artifact_dir)
@@ -45,7 +45,7 @@ class ArtifactIO:
         joblib.dump(prep or PreprocessConfig(), artifact_dir / cls.PREP_FILENAME)
         
         torch.save(model.state_dict(), artifact_dir / cls.STATE_FILENAME)
-        torch.save(aux_data, artifact_dir / cls.AUX_FILENAME)
+        torch.save(aux, artifact_dir / cls.AUX_FILENAME)
 
         return None
 
@@ -64,10 +64,10 @@ class ArtifactIO:
 
         prep = joblib.load(artifact_dir / cls.PREP_FILENAME)
 
-        aux_data = torch.load(artifact_dir / cls.AUX_FILENAME, map_location=device)
+        aux = torch.load(artifact_dir / cls.AUX_FILENAME, map_location=device)
         state_dict = torch.load(artifact_dir / cls.STATE_FILENAME, map_location=device)
 
-        model = create_model(spec=spec, prep=prep, aux=aux_data)
+        model = create_model(spec=spec, prep=prep, aux=aux)
         model.load_state_dict(state_dict)
         model.to(device)
         model.eval()

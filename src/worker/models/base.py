@@ -7,10 +7,10 @@ import torch
 
 from .specs import ModelConfig, PreprocessConfig, AuxilaryData
 
+
 BoundsDict = dict[str, tuple[float, float]] | None
 PandasType = pd.Series | pd.DataFrame
 InputType = np.ndarray | list | pd.Series | pd.DataFrame
-DeviceType = str | torch.device
 
 
 class PredictMixin(ABC):
@@ -19,10 +19,10 @@ class PredictMixin(ABC):
     prep: PreprocessConfig
     aux: AuxilaryData
 
-    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux_data: AuxilaryData = None) -> None:
+    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         self.spec = spec
         self.prep = prep or PreprocessConfig()
-        self.aux = aux_data or AuxilaryData()
+        self.aux = aux or AuxilaryData()
 
     @abstractmethod
     def _predict_tensor(self, x: torch.Tensor, *, return_std: bool = False):
@@ -88,7 +88,7 @@ class PredictMixin(ABC):
         self,
         x: InputType,
         *,
-        device: DeviceType = "cpu",
+        device: str | torch.device = "cpu",
         clip_bounds: BoundsDict = None,
         return_std: bool = False,
     ) -> Any:
@@ -152,7 +152,7 @@ class PredictMixin(ABC):
 
 
 class BaseTorchModel(torch.nn.Module, PredictMixin):
-    """Base class for torch models that use the registry/spec approach."""
-    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux_data: AuxilaryData = None) -> None:
+    """Base class for a factory/registry approach."""
+    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         torch.nn.Module.__init__(self)
-        PredictMixin.__init__(self, spec=spec, prep=prep, aux_data=aux_data)
+        PredictMixin.__init__(self, spec=spec, prep=prep, aux=aux)

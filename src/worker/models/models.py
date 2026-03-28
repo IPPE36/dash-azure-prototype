@@ -22,8 +22,8 @@ class MLPRegressor(BaseTorchModel):
     dropout: float
         Example: 0.1
     """
-    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux_data: AuxilaryData = None) -> None:
-        super().__init__(spec=spec, prep=prep, aux_data=aux_data)
+    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
+        super().__init__(spec=spec, prep=prep, aux=aux)
 
         hidden_dims = spec.model_kwargs.get("hidden_dims", [128, 128, 64])
         dropout = float(spec.model_kwargs.get("dropout", 0.0))
@@ -75,21 +75,21 @@ class _MultitaskExactGPModel(gpytorch.models.ExactGP):
 class MultiOutputExactGP(BaseTorchModel):
     """
     Basic multi-output Exact GP model (gpytorch).
-    Expects aux_data.train_x and aux_data.train_y.
+    Expects aux.train_x and aux.train_y.
     """
-    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux_data: AuxilaryData = None) -> None:
-        super().__init__(spec=spec, prep=prep, aux_data=aux_data)
+    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
+        super().__init__(spec=spec, prep=prep, aux=aux)
 
         train_x = None
         train_y = None
 
-        if self.aux_data is not None:
-            train_x = self.aux_data.train_x
-            train_y = self.aux_data.train_y
+        if self.aux is not None:
+            train_x = self.aux.train_x
+            train_y = self.aux.train_y
 
-            if (train_x is None or train_y is None) and self.aux_data.extra:
-                train_x_path = self.aux_data.extra.get("train_x_path")
-                train_y_path = self.aux_data.extra.get("train_y_path")
+            if (train_x is None or train_y is None) and self.aux.extra:
+                train_x_path = self.aux.extra.get("train_x_path")
+                train_y_path = self.aux.extra.get("train_y_path")
                 if train_x_path and train_y_path:
                     train_x = torch.load(Path(train_x_path))
                     train_y = torch.load(Path(train_y_path))
@@ -105,7 +105,7 @@ class MultiOutputExactGP(BaseTorchModel):
         if train_x is None or train_y is None:
             raise ValueError(
                 "multitask_gp requires training data. "
-                "Provide aux_data.train_x/train_y or aux_data.extra "
+                "Provide aux.train_x/train_y or aux.extra "
                 "with train_x_path/train_y_path to load from disk."
             )
 
@@ -135,6 +135,6 @@ class MultiOutputExactGP(BaseTorchModel):
                 std = self._to_pandas(raw["std"], columns=self.spec.targets, input_kind=input_kind)
                 return {"mean": mean, "std": std}
             return mean
-
+        
         mean = self._inv_transform_y(raw)
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
