@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 
@@ -140,10 +142,6 @@ def plot_true_vs_predicted(
     show: bool = True,
     filepath: str = None,
 ):
-    """
-    Plot true vs predicted scatter for each target.
-    If y_std is provided and show_std is True, plot error bars.
-    """
     if y_true.ndim == 1:
         y_true = y_true.reshape(-1, 1)
     if y_pred.ndim == 1:
@@ -156,19 +154,21 @@ def plot_true_vs_predicted(
     n_targets = y_true.shape[1]
     labels = target_cols or [f"y{i}" for i in range(n_targets)]
 
-    fig, axes = plt.subplots(1, n_targets, figsize=(4 * n_targets, 4), squeeze=False)
+    figs = []
 
-    for idx, ax in enumerate(axes[0]):
+    for idx in range(n_targets):
+        fig, ax = plt.subplots(figsize=(4, 4))
+
         true_vals = y_true[:, idx]
         pred_vals = y_pred[:, idx]
         vmin = min(true_vals.min(), pred_vals.min())
         vmax = max(true_vals.max(), pred_vals.max())
 
+        # --- TRAIN ---
         if y_std is not None and show_std:
             std_vals = y_std[:, idx]
             ax.errorbar(
-                true_vals,
-                pred_vals,
+                true_vals, pred_vals,
                 yerr=std_vals,
                 fmt="none",
                 ecolor="black",
@@ -176,35 +176,20 @@ def plot_true_vs_predicted(
                 elinewidth=1.0,
                 capsize=0,
             )
-            ax.scatter(
-                true_vals,
-                pred_vals,
-                alpha=0.66,
-                color="black",
-                label="Train",
-                marker=".",
-            )
-        else:
-            ax.scatter(
-                true_vals,
-                pred_vals,
-                alpha=0.66,
-                color="black",
-                label="Train",
-                marker=".",
-            )
+        ax.scatter(true_vals, pred_vals, alpha=0.66, color="black", label="Train", marker=".")
 
+        # --- TEST ---
         if y_true_test is not None and y_pred_test is not None:
             true_vals_test = y_true_test[:, idx]
             pred_vals_test = y_pred_test[:, idx]
+
             vmin = min(vmin, true_vals_test.min(), pred_vals_test.min())
             vmax = max(vmax, true_vals_test.max(), pred_vals_test.max())
 
             if y_std_test is not None and show_std:
                 std_vals_test = y_std_test[:, idx]
                 ax.errorbar(
-                    true_vals_test,
-                    pred_vals_test,
+                    true_vals_test, pred_vals_test,
                     yerr=std_vals_test,
                     fmt="none",
                     ecolor="red",
@@ -212,24 +197,9 @@ def plot_true_vs_predicted(
                     elinewidth=1.0,
                     capsize=0,
                 )
-                ax.scatter(
-                    true_vals_test,
-                    pred_vals_test,
-                    alpha=0.66,
-                    color="red",
-                    label="Test",
-                    marker=".",
-                )
-            else:
-                ax.scatter(
-                    true_vals_test,
-                    pred_vals_test,
-                    alpha=0.66,
-                    color="red",
-                    label="Test",
-                    marker=".",
-                )
+            ax.scatter(true_vals_test, pred_vals_test, alpha=0.66, color="red", label="Test", marker=".")
 
+        # --- DIAGONAL ---
         ax.plot(
             [vmin, vmax],
             [vmin, vmax],
@@ -237,22 +207,33 @@ def plot_true_vs_predicted(
             linewidth=1.0,
             color="black",
             alpha=0.66,
-            marker="."
         )
+
         ax.set_xlim(vmin, vmax)
         ax.set_ylim(vmin, vmax)
         ax.grid(True, alpha=0.5, linewidth=0.6)
         ax.set_xlabel("True")
         ax.set_ylabel("Predicted")
-        ax.set_title(f"True vs Predicted ({labels[idx]})")
+        ax.set_title(f"{labels[idx]}")
+
         if y_true_test is not None and y_pred_test is not None:
             ax.legend(frameon=False)
 
-    if show or filepath is not None:
         plt.tight_layout()
-    if filepath is not None:
-        fig.savefig(filepath, bbox_inches="tight")
-    if show:
-        plt.show()
 
-    return fig, axes
+        # --- SAVE ---
+        if filepath is not None:
+            filepath = Path(filepath)
+            out_path = filepath.with_name(
+                f"{filepath.stem}_{labels[idx]}{filepath.suffix}"
+            )
+            fig.savefig(out_path, bbox_inches="tight")
+
+        if show:
+            plt.show()
+        else:
+            plt.close(fig)
+
+        figs.append(fig)
+
+    return figs
