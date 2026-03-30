@@ -12,6 +12,20 @@ from .registry import register_model
 from .specs import ModelConfig, PreprocessConfig, AuxilaryData
 
 
+
+def _to_float_tensor(value):
+    if isinstance(value, torch.Tensor):
+        if value.dtype != torch.float32:
+            return value.to(dtype=torch.float32)
+        return value
+    if isinstance(value, np.ndarray):
+        if not value.flags.writeable:
+            value = value.copy()
+        return torch.as_tensor(value, dtype=torch.float32)
+    return torch.as_tensor(value, dtype=torch.float32)
+
+
+
 @register_model("mlp_regressor")
 class MLPRegressor(BaseTorchModel):
     """
@@ -23,6 +37,8 @@ class MLPRegressor(BaseTorchModel):
     dropout: float
         Example: 0.1
     """
+    task_type = "regression"
+    
     def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         super().__init__(spec=spec, prep=prep, aux=aux)
 
@@ -85,11 +101,16 @@ class MultiOutputExactGP(BaseTorchModel):
     Basic multi-output Exact GP model (gpytorch).
     Expects aux.train_x and aux.train_y.
     """
+    task_type = "regression"
+
     def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         super().__init__(spec=spec, prep=prep, aux=aux)
 
         if aux is None:
-            raise ValueError("GPR requires train info in auxilary data!")
+            raise ValueError(
+                "multitask_gp requires training data. "
+                "Provide aux.train_x/train_y or aux.extra "
+            )
 
         train_x = self.aux.train_x
         train_y = self.aux.train_y
@@ -105,13 +126,13 @@ class MultiOutputExactGP(BaseTorchModel):
             raise ValueError(
                 "multitask_gp requires training data. "
                 "Provide aux.train_x/train_y or aux.extra "
-                "with train_x_path/train_y_path to load from disk."
             )
 
         train_x = _to_float_tensor(train_x)
         train_y = _to_float_tensor(train_y)
 
         num_tasks = self.spec.output_dim
+
         covar_rank = int(self.spec.model_kwargs.get(
             "covar_rank",
             1,
@@ -202,13 +223,162 @@ class MultiOutputExactGP(BaseTorchModel):
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
 
 
-def _to_float_tensor(value):
-    if isinstance(value, torch.Tensor):
-        if value.dtype != torch.float32:
-            return value.to(dtype=torch.float32)
-        return value
-    if isinstance(value, np.ndarray):
-        if not value.flags.writeable:
-            value = value.copy()
-        return torch.as_tensor(value, dtype=torch.float32)
-    return torch.as_tensor(value, dtype=torch.float32)
+class _DirichletGPClassifier(gpytorch.models.ExactGP):
+    def __init__(self, features, target, train_x, train_y, likelihood, num_classes):
+        super().__init__(train_x, train_y, likelihood)
+        self.features = features
+        self.targets = [target]
+        self.num_classes = num_classes
+        self.batch_shape = torch.Size((self.num_classes,))
+        self.mean_module = gpytorch.means.LinearMean(
+            batch_shape=self.batch_shape, input_size=len(self.features)
+        )
+        self.covar_module = (
+            gpytorch.kernels.RQKernel(batch_shape=self.batch_shape)
+        )
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
+
+    def _predict_tensor(self, x: torch.Tensor) -> tuple[list, ...]:
+        x_list = [x.clone()] * self.num_classes
+        with (
+            torch.no_grad(),
+            gpytorch.settings.fast_pred_var(),
+            gpytorch.settings.observation_nan_policy("mask"),
+            gpytorch.settings.cholesky_jitter(1e-5),
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", GPInputWarning)
+            yhat_test_logits = [m(x_) for x_, m in zip(x_list, self.models)]
+            yhat_means = [l.loc for l in yhat_test_logits]
+            yhat_classes = [l.max(0)[1] for l in yhat_means]
+            yhat_samples = [l.sample(torch.Size((256,))).exp() for l in yhat_test_logits]
+            yhat_proba = [(yhat_samples[i] / yhat_samples[i].sum(-2, keepdim=True)).mean(0) for i in range(len(x_list))]
+        return yhat_classes, yhat_proba
+    
+
+class _MultitaskDirichletGPClassifier(gpytorch.models.IndependentModelList):
+    def __init__(self, sub_models):
+        super().__init__(*sub_models)
+        self.sub_models = sub_models
+
+    def _predict(self, x: torch.Tensor) -> tuple[np.ndarray, np.ndarray]:
+        predictions = []
+        probas = []
+
+        for model in self.sub_models:
+            model.eval()
+            model.likelihood.eval()
+            with (
+                torch.no_grad(),
+                gpytorch.settings.fast_pred_var(),
+                gpytorch.settings.observation_nan_policy("mask"),
+                gpytorch.settings.cholesky_jitter(1e-5),
+                warnings.catch_warnings(),
+            ):
+                warnings.simplefilter("ignore", GPInputWarning)
+                latent = model(x)
+                # latent is a MultivariateNormal with batch_shape=(num_classes,)
+                samples = latent.sample(torch.Size((256,)))   # (n_samples_mc, num_classes, n_points)
+                alpha = samples.exp()
+                proba_samples = alpha / alpha.sum(dim=1, keepdim=True)   # normalize over class axis
+                proba = proba_samples.mean(dim=0).transpose(0, 1)        # (n_points, num_classes)
+                cls = proba.argmax(dim=1)
+                proba = proba.detach().cpu().numpy()
+                cls = cls.detach().cpu().numpy()
+                predictions.append(cls)
+                probas.append(proba)
+
+        predictions = np.stack(predictions, axis=1)
+        probas = np.stack(probas, axis=1)
+        return predictions, probas
+
+
+@register_model("multitask_dirichlet")
+class MultiOutputDirichlet(BaseTorchModel):
+    """
+    Independent Model List of Dirichlet Classifiers.
+    Expects aux.train_x and aux.train_y.
+    """
+    task_type = "classification"
+
+    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
+        super().__init__(spec=spec, prep=prep, aux=aux)
+
+        if aux is None:
+            raise ValueError(
+                "multitask_gp requires training data. "
+                "Provide aux.train_x/train_y or aux.extra "
+            )
+
+        train_x = self.aux.train_x
+        train_y = self.aux.train_y
+
+        if (train_x is None or train_y is None) and self.aux.extra:
+            train_x_path = self.aux.extra.get("train_x_path")
+            train_y_path = self.aux.extra.get("train_y_path")
+            if train_x_path and train_y_path:
+                train_x = torch.load(Path(train_x_path))
+                train_y = torch.load(Path(train_y_path))
+
+        if train_x is None or train_y is None:
+            raise ValueError(
+                "multitask_gp requires training data. "
+                "Provide aux.train_x/train_y or aux.extra "
+            )
+
+        train_x = _to_float_tensor(train_x)
+        train_y = _to_float_tensor(train_y)
+        targets = self.spec.targets
+        features = self.spec.features
+
+        sub_models = []
+        sub_likelihoods = []
+        for i, target in enumerate(targets):
+            mask_i = ~torch.isnan(train_y[:, i])
+            xi = train_x[mask_i, :].clone()
+            yi = train_y[mask_i, i].round().long().clone()
+            lik_i = gpytorch.likelihoods.DirichletClassificationLikelihood(
+                yi,
+                learn_additional_noise=True
+            )
+            model_i = _DirichletGPClassifier(
+                features,
+                target,
+                xi,
+                lik_i.transformed_targets,
+                lik_i,
+                lik_i.num_classes
+            )
+            sub_models.append(model_i)
+            sub_likelihoods.append(lik_i)
+
+        self.likelihood = gpytorch.likelihoods.LikelihoodList(
+            *sub_likelihoods
+        )
+        self.gp_model = _MultitaskDirichletGPClassifier(
+            sub_models,
+        )
+    
+    def _predict_tensor(self, x: torch.Tensor, *, return_std: bool = False):
+        pred, proba = self.gp_model._predict(x)
+        return {"pred": pred, "proba": proba}
+
+    def _format_prediction(
+        self,
+        raw,
+        *,
+        input_kind: str,
+        return_std: bool = False,
+        return_bounds: bool = False,
+    ):
+        pred = raw["pred"]
+        proba = raw["proba"]
+        pred_pd = self._to_pandas(pred, columns=self.spec.targets, input_kind=input_kind)
+        return {
+            "pred": pred_pd,
+            "proba": proba,
+        }

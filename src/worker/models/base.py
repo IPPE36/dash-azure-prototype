@@ -18,6 +18,7 @@ class PredictMixin(ABC):
     spec: ModelConfig
     prep: PreprocessConfig
     aux: AuxilaryData
+    task_type: str = "regression"
 
     def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         self.spec = spec
@@ -126,6 +127,13 @@ class PredictMixin(ABC):
                 "target_b": (-5.0, 5.0),
             }
         """
+
+        if self.task_type != "regression":
+            if clip_bounds is not None:
+                raise ValueError("'clip_bounds' is only supported for regression models.")
+            if return_bounds:
+                raise ValueError("'return_bounds' is only supported for regression models.")
+        
         x_np, input_kind = self._coerce_x(x)
         x_np = self._transform_x(x_np)
         x_tensor = torch.as_tensor(x_np, dtype=torch.float32, device=device)
@@ -141,7 +149,7 @@ class PredictMixin(ABC):
             return_bounds=return_bounds,
         )
 
-        if clip_bounds:
+        if self.task_type == "regression" and clip_bounds:
             pred = self._clip_prediction(pred, clip_bounds)
 
         return pred
@@ -167,6 +175,13 @@ class PredictMixin(ABC):
         return pred
 
     def _to_pandas(self, y: np.ndarray, *, columns: list[str], input_kind: str):
+        if input_kind == "dataframe":
+            return pd.DataFrame(y, columns=columns)
+        if input_kind == "series":
+            return pd.Series(y[0], index=columns)
+        return y
+    
+    def _to_pandas_labels(self, y: np.ndarray, *, columns: list[str], input_kind: str):
         if input_kind == "dataframe":
             return pd.DataFrame(y, columns=columns)
         if input_kind == "series":

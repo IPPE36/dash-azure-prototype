@@ -156,15 +156,9 @@ class MultiTaskGPTrainer(BaseTrainer):
         *,
         device: str | torch.device = "cpu",
         lr: float = 0.05,
-        weight_decay: float = 0.0,
-        lr_min: float = None,
-        lr_iter: int = 1000,
     ) -> None:
         super().__init__(model, device=device)
         self.lr = lr
-        self.weight_decay = weight_decay
-        self.lr_min = lr_min
-        self.lr_iter = lr_iter
 
     def train(
         self,
@@ -187,13 +181,9 @@ class MultiTaskGPTrainer(BaseTrainer):
         optimizer = torch.optim.Adam(
             self.model.gp_model.parameters(),
             lr=self.lr,
-            weight_decay=self.weight_decay,
+            weight_decay=0,
         )
         mll = gpytorch.mlls.ExactMarginalLogLikelihood(self.model.likelihood, self.model.gp_model)
-        scheduler = None
-        if self.lr_min is not None and self.lr_min > 0 and self.lr_min < self.lr:
-            gamma = float(np.exp(np.log(self.lr_min / self.lr) / self.lr_iter))
-            scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=gamma)
 
         losses: list[float] = []
         epoch_bar = tqdm(range(epochs), desc="GP training", leave=False)
@@ -204,8 +194,81 @@ class MultiTaskGPTrainer(BaseTrainer):
                 loss = -mll(output, y)
             loss.backward()
             optimizer.step()
-            if scheduler is not None:
-                scheduler.step()
+            loss_value = float(loss.detach().cpu().item())
+            losses.append(loss_value)
+            epoch_bar.set_postfix(loss=f"{loss_value:.4f}")
+
+        self.duration = time.perf_counter() - start_time
+        return {"losses": losses, "duration": self.duration}
+    
+
+
+@register_trainer("multitask_dirichlet")
+class MultiTaskDirichletTrainer(BaseTrainer):
+    def __init__(
+        self,
+        model,
+        *,
+        device: str | torch.device = "cpu",
+        lr: float = 0.05,
+    ) -> None:
+        super().__init__(model, device=device)
+        self.lr = lr
+
+    def train(
+        self,
+        train_x,
+        train_y,
+        *,
+        epochs: int = 100,
+    ) -> dict[str, Any]:
+        self.duration = None
+        start_time = time.perf_counter()
+        self.model.gp_model.to(self.device)
+        self.model.likelihood.to(self.device)
+        self.model.gp_model.train()
+        self.model.likelihood.train()
+
+        x = torch.as_tensor(train_x, dtype=torch.float32, device=self.device)
+        y = torch.as_tensor(train_y, dtype=torch.float32, device=self.device)
+
+        input_list = []
+        target_list = []
+
+        for i, submodel in enumerate(self.model.gp_model.sub_models):
+            mask_i = ~torch.isnan(y[:, i])
+            xi = x[mask_i, :]
+            lik_i = self.model.likelihood.likelihoods[i]
+            transformed_yi = lik_i.transformed_targets.to(self.device)
+            submodel.set_train_data(inputs=xi, targets=transformed_yi, strict=False)
+            input_list.append(xi)
+            target_list.append(transformed_yi)
+
+        optimizer = torch.optim.Adam(
+            self.model.gp_model.parameters(),
+            lr=self.lr,
+            weight_decay=0,
+        )
+
+        mll = gpytorch.mlls.SumMarginalLogLikelihood(
+            self.model.likelihood,
+            self.model.gp_model,
+        )
+
+        losses: list[float] = []
+        epoch_bar = tqdm(range(epochs), desc="Dirichlet GP training", leave=False)
+
+        for epoch in epoch_bar:
+            optimizer.zero_grad()
+            with gpytorch.settings.cholesky_jitter(1e-5), gpytorch.settings.observation_nan_policy("mask"):
+                output = self.model.gp_model(*input_list)
+                loss = -mll(output, target_list)
+                if loss.ndim > 0:
+                    loss = loss.sum()
+
+            loss.backward()
+            optimizer.step()
+
             loss_value = float(loss.detach().cpu().item())
             losses.append(loss_value)
             epoch_bar.set_postfix(loss=f"{loss_value:.4f}")
