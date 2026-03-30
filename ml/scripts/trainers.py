@@ -1,6 +1,5 @@
-
 from typing import Any
-
+import time
 import numpy as np
 import torch
 import gpytorch
@@ -24,7 +23,16 @@ class MLPTrainer(BaseTrainer):
         self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=lr, weight_decay=weight_decay)
         self.loss_fn = torch.nn.MSELoss()
 
-    def train(self, train_x, train_y, *, epochs: int = 100, batch_size: int = None) -> dict[str, Any]:
+    def train(
+        self,
+        train_x,
+        train_y,
+        *,
+        epochs: int = 100,
+        batch_size: int = None,
+    ) -> dict[str, Any]:
+        self.duration = None
+        start_time = time.perf_counter()
         self.model.to(self.device)
         self.model.train()
 
@@ -56,7 +64,8 @@ class MLPTrainer(BaseTrainer):
                 avg_loss = sum(epoch_losses) / len(epoch_losses)
                 epoch_bar.set_postfix(loss=f"{avg_loss:.4f}")
 
-        return {"losses": losses}
+        self.duration = time.perf_counter() - start_time
+        return {"losses": losses, "duration": self.duration}
 
 
 @register_trainer("multitask_gp")
@@ -68,7 +77,7 @@ class MultiTaskGPTrainer(BaseTrainer):
         device: str | torch.device = "cpu",
         lr: float = 0.05,
         weight_decay: float = 0.0,
-        lr_min: float | None = None,
+        lr_min: float = None,
         lr_iter: int = 1000,
     ) -> None:
         super().__init__(model, device=device)
@@ -77,7 +86,15 @@ class MultiTaskGPTrainer(BaseTrainer):
         self.lr_min = lr_min
         self.lr_iter = lr_iter
 
-    def train(self, train_x, train_y, *, epochs: int = 100) -> dict[str, Any]:
+    def train(
+        self,
+        train_x,
+        train_y,
+        *,
+        epochs: int = 100,
+    ) -> dict[str, Any]:
+        self.duration = None
+        start_time = time.perf_counter()
         self.model.gp_model.to(self.device)
         self.model.likelihood.to(self.device)
         self.model.gp_model.train()
@@ -113,4 +130,5 @@ class MultiTaskGPTrainer(BaseTrainer):
             losses.append(loss_value)
             epoch_bar.set_postfix(loss=f"{loss_value:.4f}")
 
-        return {"losses": losses}
+        self.duration = time.perf_counter() - start_time
+        return {"losses": losses, "duration": self.duration}

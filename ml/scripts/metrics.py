@@ -1,9 +1,11 @@
-from __future__ import annotations
-
 import numpy as np
 
 
-def mape(y_true: np.ndarray, y_pred: np.ndarray, *, eps: float = 1e-8) -> float:
+def mape(
+        y_true: np.ndarray,
+        y_pred: np.ndarray, *,
+        eps: float = 1e-8
+) -> float:
     """
     Mean Absolute Percentage Error.
 

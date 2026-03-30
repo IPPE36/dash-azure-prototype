@@ -1,6 +1,9 @@
 __pycache__/
 *.pyc
 *.pyo
+*.log
+*.png
+**/aux.pt
 .git
 .gitignore
 .env
