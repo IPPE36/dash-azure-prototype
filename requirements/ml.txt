@@ -8,4 +8,5 @@ torchaudio
 joblib
 gpytorch
 jupyter
-ipykernel 
+tqdm
+openpyxl

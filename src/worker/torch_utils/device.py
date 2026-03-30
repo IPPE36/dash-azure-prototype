@@ -21,3 +21,16 @@ def resolve_device(preferred: str | None = None):
         logger.warning("CUDA requested but not available; falling back to cpu")
         return torch.device("cpu")
     return torch.device(device)
+
+
+def get_default_device():
+    """
+    Prefer CUDA when available, otherwise CPU.
+    """
+    try:
+        import torch
+    except Exception as exc:
+        logger.info("torch not available; defaulting to cpu (%s)", exc)
+        return "cpu"
+
+    return torch.device("cuda" if torch.cuda.is_available() else "cpu")

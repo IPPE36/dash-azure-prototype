@@ -1,14 +1,15 @@
 from pathlib import Path
 
+import numpy as np
 import torch
 import gpytorch
+import warnings
+from gpytorch.priors import GammaPrior
+from gpytorch.utils.warnings import GPInputWarning
 
-from shared.env import env_str
 from .base import BaseTorchModel
 from .registry import register_model
 from .specs import ModelConfig, PreprocessConfig, AuxilaryData
-
-TRAIN_DATA_PATH = env_str("TRAIN_DATA_PATH", default="")
 
 
 @register_model("mlp_regressor")
@@ -47,22 +48,29 @@ class MLPRegressor(BaseTorchModel):
     def _predict_tensor(self, x: torch.Tensor, *, return_std: bool = False):
         return self(x).detach().cpu().numpy()
 
-    def _format_prediction(self, raw, *, input_kind: str, return_std: bool = False):
+    def _format_prediction(
+        self,
+        raw,
+        *,
+        input_kind: str,
+        return_std: bool = False,
+        return_bounds: bool = False,
+    ):
         mean = self._inv_transform_y(raw)
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
 
 
 class _MultitaskExactGPModel(gpytorch.models.ExactGP):
-    def __init__(self, train_x, train_y, likelihood, num_tasks: int):
+    def __init__(self, train_x, train_y, likelihood, num_tasks: int, *, covar_rank: int = 1):
         super().__init__(train_x, train_y, likelihood)
         self.mean_module = gpytorch.means.MultitaskMean(
-            gpytorch.means.ConstantMean(),
+            gpytorch.means.LinearMean(input_size=train_x.shape[-1], bias=True),
             num_tasks=num_tasks,
         )
         self.covar_module = gpytorch.kernels.MultitaskKernel(
-            gpytorch.kernels.ScaleKernel(gpytorch.kernels.RBFKernel()),
+            gpytorch.kernels.RQKernel(),
             num_tasks=num_tasks,
-            rank=1,
+            rank=covar_rank,
         )
 
     def forward(self, x):
@@ -77,30 +85,18 @@ class MultiOutputExactGP(BaseTorchModel):
     Basic multi-output Exact GP model (gpytorch).
     Expects aux.train_x and aux.train_y.
     """
-    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
+    def __init__(self, spec: ModelConfig, aux: AuxilaryData, prep: PreprocessConfig = None) -> None:
         super().__init__(spec=spec, prep=prep, aux=aux)
 
-        train_x = None
-        train_y = None
+        train_x = self.aux.train_x
+        train_y = self.aux.train_y
 
-        if self.aux is not None:
-            train_x = self.aux.train_x
-            train_y = self.aux.train_y
-
-            if (train_x is None or train_y is None) and self.aux.extra:
-                train_x_path = self.aux.extra.get("train_x_path")
-                train_y_path = self.aux.extra.get("train_y_path")
-                if train_x_path and train_y_path:
-                    train_x = torch.load(Path(train_x_path))
-                    train_y = torch.load(Path(train_y_path))
-
-        if train_x is None or train_y is None:
-            if TRAIN_DATA_PATH:
-                train_x_path = Path(TRAIN_DATA_PATH) / "train_x.pt"
-                train_y_path = Path(TRAIN_DATA_PATH) / "train_y.pt"
-                if train_x_path.exists() and train_y_path.exists():
-                    train_x = torch.load(train_x_path)
-                    train_y = torch.load(train_y_path)
+        if (train_x is None or train_y is None) and self.aux.extra:
+            train_x_path = self.aux.extra.get("train_x_path")
+            train_y_path = self.aux.extra.get("train_y_path")
+            if train_x_path and train_y_path:
+                train_x = torch.load(Path(train_x_path))
+                train_y = torch.load(Path(train_y_path))
 
         if train_x is None or train_y is None:
             raise ValueError(
@@ -109,17 +105,62 @@ class MultiOutputExactGP(BaseTorchModel):
                 "with train_x_path/train_y_path to load from disk."
             )
 
-        train_x = torch.as_tensor(train_x, dtype=torch.float32)
-        train_y = torch.as_tensor(train_y, dtype=torch.float32)
+        train_x = _to_float_tensor(train_x)
+        train_y = _to_float_tensor(train_y)
 
         num_tasks = self.spec.output_dim
-        self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(num_tasks=num_tasks)
-        self.gp_model = _MultitaskExactGPModel(train_x, train_y, self.likelihood, num_tasks=num_tasks)
+        covar_rank = int(self.spec.model_kwargs.get(
+            "covar_rank",
+            1,
+        ))
+        has_task_noise = bool(self.spec.model_kwargs.get(
+            "has_task_noise",
+            num_tasks > 1,
+        ))
+        has_global_noise = bool(self.spec.model_kwargs.get(
+            "has_global_noise",
+            True,
+        ))
+        noise_rank = int(self.spec.model_kwargs.get(
+            "noise_rank", 
+            0 if num_tasks == 1 else 1,
+        ))
+        noise_prior = self.spec.model_kwargs.get(
+            "noise_prior",
+            GammaPrior(2.0, 100.0),  # for minmax targets
+        )
+        noise_constraint = self.spec.model_kwargs.get(
+            "noise_constraint",
+            gpytorch.constraints.GreaterThan(1e-5),  # for moderately noisy targets
+        )
+
+        self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
+            num_tasks=num_tasks,
+            has_global_noise=has_global_noise,
+            has_task_noise=has_task_noise,
+            rank=noise_rank,
+            noise_prior=noise_prior,
+            noise_constraint=noise_constraint,
+        )
+        self.gp_model = _MultitaskExactGPModel(
+            train_x,
+            train_y,
+            self.likelihood,
+            num_tasks=num_tasks,
+            covar_rank=covar_rank,
+        )
 
     def _predict_tensor(self, x: torch.Tensor, *, return_std: bool = False):
         self.gp_model.eval()
         self.likelihood.eval()
-        with torch.no_grad(), gpytorch.settings.fast_pred_var():
+        with (
+            torch.no_grad(),
+            gpytorch.settings.fast_pred_var(),
+            gpytorch.settings.observation_nan_policy("mask"),
+            gpytorch.settings.cholesky_jitter(1e-5),
+            warnings.catch_warnings(),
+        ):
+            warnings.simplefilter("ignore", GPInputWarning)
             preds = self.likelihood(self.gp_model(x))
             mean = preds.mean.detach().cpu().numpy()
             if return_std:
@@ -127,14 +168,44 @@ class MultiOutputExactGP(BaseTorchModel):
                 return {"mean": mean, "std": std}
             return mean
 
-    def _format_prediction(self, raw, *, input_kind: str, return_std: bool = False):
+    def _format_prediction(
+        self,
+        raw,
+        *,
+        input_kind: str,
+        return_std: bool = False,
+        return_bounds: bool = False,
+    ):
         if isinstance(raw, dict):
-            mean = self._inv_transform_y(raw["mean"])
+            mean_raw = raw["mean"]
+            mean = self._inv_transform_y(mean_raw)
             mean = self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
             if return_std and "std" in raw:
-                std = self._to_pandas(raw["std"], columns=self.spec.targets, input_kind=input_kind)
-                return {"mean": mean, "std": std}
+                std_raw = raw["std"]
+                std = self._inv_transform_y_std(std_raw)
+                std = self._to_pandas(std, columns=self.spec.targets, input_kind=input_kind)
+                result = {"mean": mean, "std": std}
+                if return_bounds:
+                    lower_raw = mean_raw - 1.96 * std_raw
+                    upper_raw = mean_raw + 1.96 * std_raw
+                    lower = self._inv_transform_y(lower_raw)
+                    upper = self._inv_transform_y(upper_raw)
+                    result["lower"] = self._to_pandas(lower, columns=self.spec.targets, input_kind=input_kind)
+                    result["upper"] = self._to_pandas(upper, columns=self.spec.targets, input_kind=input_kind)
+                return result
             return mean
         
         mean = self._inv_transform_y(raw)
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
+
+
+def _to_float_tensor(value):
+    if isinstance(value, torch.Tensor):
+        if value.dtype != torch.float32:
+            return value.to(dtype=torch.float32)
+        return value
+    if isinstance(value, np.ndarray):
+        if not value.flags.writeable:
+            value = value.copy()
+        return torch.as_tensor(value, dtype=torch.float32)
+    return torch.as_tensor(value, dtype=torch.float32)

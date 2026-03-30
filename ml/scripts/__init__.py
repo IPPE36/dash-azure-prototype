@@ -1,3 +1,11 @@
-from .mock_data import make_mock_df
+from .plotting import (
+    plot_pca_cumulative_variance,
+    plot_pca_loadings,
+    plot_true_vs_predicted,
+)
 
-__all__ = ["make_mock_df"]
+__all__ = [
+    "plot_pca_cumulative_variance",
+    "plot_pca_loadings",
+    "plot_true_vs_predicted",
+]

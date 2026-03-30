@@ -29,7 +29,14 @@ class PredictMixin(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def _format_prediction(self, raw, *, input_kind: str, return_std: bool = False):
+    def _format_prediction(
+        self,
+        raw,
+        *,
+        input_kind: str,
+        return_std: bool = False,
+        return_bounds: bool = False,
+    ):
         raise NotImplementedError
 
     def _coerce_x(self, x: InputType) -> tuple[np.ndarray, str]:
@@ -83,6 +90,16 @@ class PredictMixin(ABC):
                 y[:, i:i + 1] = scaler.inverse_transform(y[:, i:i + 1])
         return y
 
+    def _inv_transform_y_std(self, std: np.ndarray) -> np.ndarray:
+        p = self.prep
+        if p.scaler_y is not None:
+            return _scale_std(std, p.scaler_y)
+        if p.scaler_y_list is not None:
+            std = std.copy()
+            for i, scaler in enumerate(p.scaler_y_list):
+                std[:, i:i + 1] = _scale_std(std[:, i:i + 1], scaler)
+        return std
+
     @torch.inference_mode()
     def predict(
         self,
@@ -91,6 +108,7 @@ class PredictMixin(ABC):
         device: str | torch.device = "cpu",
         clip_bounds: BoundsDict = None,
         return_std: bool = False,
+        return_bounds: bool = False,
     ) -> Any:
         """
         High-level inference entry point.
@@ -116,7 +134,12 @@ class PredictMixin(ABC):
         self.eval()
 
         raw = self._predict_tensor(x_tensor, return_std=return_std)
-        pred = self._format_prediction(raw=raw, input_kind=input_kind, return_std=return_std)
+        pred = self._format_prediction(
+            raw=raw,
+            input_kind=input_kind,
+            return_std=return_std,
+            return_bounds=return_bounds,
+        )
 
         if clip_bounds:
             pred = self._clip_prediction(pred, clip_bounds)
@@ -149,6 +172,14 @@ class PredictMixin(ABC):
         if input_kind == "series":
             return pd.Series(y[0], index=columns)
         return y
+
+
+def _scale_std(std: np.ndarray, scaler) -> np.ndarray:
+    if hasattr(scaler, "min_") and hasattr(scaler, "scale_"):
+        return std / scaler.scale_
+    if hasattr(scaler, "scale_"):
+        return std * scaler.scale_
+    return std
 
 
 class BaseTorchModel(torch.nn.Module, PredictMixin):

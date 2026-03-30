@@ -1,4 +1,5 @@
 FROM python:3.11-slim
+# use alpine instead of slim?
 
 WORKDIR /app
 
