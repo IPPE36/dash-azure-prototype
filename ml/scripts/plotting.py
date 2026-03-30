@@ -9,7 +9,7 @@ def plot_pca_cumulative_variance(
     *,
     pca: object = None,
     ax: plt.Axes = None,
-    title: str = "PCA Cumulative Explained Variance",
+    title: str = "Explained Variance",
     show: bool = True,
     filepath: str = None,
 ):
@@ -46,14 +46,13 @@ def plot_pca_cumulative_variance(
     ax.set_ylabel("Cumulative Explained Variance")
     ax.set_title(title)
 
-    if show or filepath is not None:
-        plt.tight_layout()
+    plt.tight_layout()
     if filepath is not None:
         fig.savefig(filepath, bbox_inches="tight")
     if show:
         plt.show()
-
-    return fig, ax
+    plt.close()
+    return
 
 
 def plot_pca_loadings(
@@ -119,14 +118,13 @@ def plot_pca_loadings(
     if colorbar:
         fig.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
 
-    if show or filepath is not None:
-        plt.tight_layout()
+    plt.tight_layout()
     if filepath is not None:
-        fig.savefig(filepath, bbox_inches="tight")
+        fig.savefig(filepath)
     if show:
         plt.show()
-
-    return fig, ax
+    plt.close()
+    return
 
 
 def plot_true_vs_predicted(
@@ -153,8 +151,6 @@ def plot_true_vs_predicted(
 
     n_targets = y_true.shape[1]
     labels = target_cols or [f"y{i}" for i in range(n_targets)]
-
-    figs = []
 
     for idx in range(n_targets):
         fig, ax = plt.subplots(figsize=(4, 4))
@@ -220,20 +216,74 @@ def plot_true_vs_predicted(
             ax.legend(frameon=False)
 
         plt.tight_layout()
-
-        # --- SAVE ---
         if filepath is not None:
             filepath = Path(filepath)
             out_path = filepath.with_name(
                 f"{filepath.stem}_{labels[idx]}{filepath.suffix}"
             )
             fig.savefig(out_path, bbox_inches="tight")
-
         if show:
             plt.show()
-        else:
-            plt.close(fig)
+        plt.close()
+    return
 
-        figs.append(fig)
 
-    return figs
+def plot_scaler_hist(
+    scaler,
+    y_train: np.ndarray,
+    y_test: np.ndarray,
+    target_cols: list[str] = None,
+    show: bool = True,
+    filepath: str = None,
+):
+    if y_train.ndim == 1:
+        y_train = y_train.reshape(-1, 1)
+    if y_test.ndim == 1:
+        y_test = y_test.reshape(-1, 1)
+
+    if y_train.shape[1] != y_test.shape[1]:
+        raise ValueError("y_train and y_test must have the same number of columns")
+
+    n_targets = y_train.shape[1]
+    labels = target_cols or [f"y{i}" for i in range(n_targets)]
+
+    filepath = Path(filepath) if filepath is not None else None
+
+    for idx in range(n_targets):
+        fig, (ax1, ax2) = plt.subplots(nrows=1, ncols=2, figsize=(10, 4))
+
+        y_train_col = y_train[:, idx].copy().reshape(-1, 1)
+        y_test_col = y_test[:, idx].copy().reshape(-1, 1)
+
+        # left: unscaled
+        ax1.hist(y_train_col.squeeze(), label="train unscaled", alpha=0.7)
+        ax1.hist(y_test_col.squeeze(), label="test unscaled", alpha=0.7)
+
+        # fit separate scaler instance per column
+        scaler_local = scaler.__class__(**scaler.get_params())
+        y_train_scaled = scaler_local.fit_transform(y_train_col).squeeze()
+        y_test_scaled = scaler_local.transform(y_test_col).squeeze()
+
+        # right: scaled
+        ax2.hist(y_train_scaled, label="train scaled", alpha=0.7)
+        ax2.hist(y_test_scaled, label="test scaled", alpha=0.7)
+
+        ax1.set_title(f"Unscaled ({labels[idx]})")
+        ax2.set_title(f"Scaled ({labels[idx]})")
+
+        ax1.grid(color="gray", linestyle="--", linewidth=0.5)
+        ax2.grid(color="gray", linestyle="--", linewidth=0.5)
+        ax1.legend()
+        ax2.legend()
+
+        plt.tight_layout()
+        if filepath is not None:
+            filepath = Path(filepath)
+            out_path = filepath.with_name(
+                f"{filepath.stem}_{labels[idx]}{filepath.suffix}"
+            )
+            fig.savefig(out_path, bbox_inches="tight")
+        if show:
+            plt.show()
+        plt.close()
+    return 

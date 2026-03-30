@@ -3,6 +3,7 @@ import logging
 
 import numpy as np
 from sklearn.metrics import r2_score
+from .metrics import mape, picp
 
 
 def init_ml_logger(
@@ -45,9 +46,7 @@ def log_data_summary(
     y_std=None,
     feature_cols: list[str] = None,
     target_cols: list[str] = None,
-    eps: float = 1e-8,
     coverage: float = 0.95,
-    z: float = None,
 ) -> dict[str, np.ndarray]:
     """
     Log per-target metrics (R2, MAPE, PICP) plus dataset summary.
@@ -81,23 +80,11 @@ def log_data_summary(
         return {"r2": None, "mape": None, "picp": None}
 
     r2_vals = r2_score(y_true, y_pred, multioutput="raw_values")
-    denom = np.clip(np.abs(y_true), eps, None)
-    mape_vals = np.mean(np.abs((y_true - y_pred) / denom), axis=0)
+    mape_vals = mape(y_true, y_pred=y_pred, multioutput="raw_values")
 
     picp_vals = None
     if y_std is not None:
-        y_std = np.asarray(y_std, dtype=float)
-        if y_std.ndim == 1:
-            y_std = y_std.reshape(-1, 1)
-        if z is None:
-            if np.isclose(coverage, 0.95):
-                z = 1.96
-            else:
-                raise ValueError("Provide z for coverage values other than 0.95.")
-        lower = y_pred - z * y_std
-        upper = y_pred + z * y_std
-        covered = (y_true >= lower) & (y_true <= upper)
-        picp_vals = np.mean(covered, axis=0)
+        picp_vals = picp(y_true, y_pred=y_pred, y_std=y_std, multioutput="raw_values")
 
     logger.info("%s metrics per target:", phase)
     for i, name in enumerate(labels):

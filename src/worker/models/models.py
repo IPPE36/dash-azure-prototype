@@ -85,8 +85,11 @@ class MultiOutputExactGP(BaseTorchModel):
     Basic multi-output Exact GP model (gpytorch).
     Expects aux.train_x and aux.train_y.
     """
-    def __init__(self, spec: ModelConfig, aux: AuxilaryData, prep: PreprocessConfig = None) -> None:
+    def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         super().__init__(spec=spec, prep=prep, aux=aux)
+
+        if aux is None:
+            raise ValueError("GPR requires train info in auxilary data!")
 
         train_x = self.aux.train_x
         train_y = self.aux.train_y
