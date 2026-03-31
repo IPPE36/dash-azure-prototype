@@ -71,6 +71,7 @@ class MLPRegressor(BaseTorchModel):
         input_kind: str,
         return_std: bool = False,
         return_bounds: bool = False,
+        ordinal: bool = False,
     ):
         mean = self._inv_transform_y(raw)
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
@@ -199,26 +200,29 @@ class MultiOutputExactGP(BaseTorchModel):
         input_kind: str,
         return_std: bool = False,
         return_bounds: bool = False,
+        ordinal: bool = False,
     ):
         if isinstance(raw, dict):
             mean_raw = raw["mean"]
-            mean = self._inv_transform_y(mean_raw)
-            mean = self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
+
             if return_std and "std" in raw:
                 std_raw = raw["std"]
-                std = self._inv_transform_y_std(std_raw)
-                std = self._to_pandas(std, columns=self.spec.targets, input_kind=input_kind)
-                result = {"mean": mean, "std": std}
+                mean, std, lower, upper = self._inv_transform_y_stats(mean_raw, std_raw)
+
+                result = {
+                    "mean": self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind),
+                    "std": self._to_pandas(std, columns=self.spec.targets, input_kind=input_kind),
+                }
+
                 if return_bounds:
-                    lower_raw = mean_raw - 1.96 * std_raw
-                    upper_raw = mean_raw + 1.96 * std_raw
-                    lower = self._inv_transform_y(lower_raw)
-                    upper = self._inv_transform_y(upper_raw)
                     result["lower"] = self._to_pandas(lower, columns=self.spec.targets, input_kind=input_kind)
                     result["upper"] = self._to_pandas(upper, columns=self.spec.targets, input_kind=input_kind)
+
                 return result
-            return mean
-        
+
+            mean = self._inv_transform_y(mean_raw)
+            return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
+
         mean = self._inv_transform_y(raw)
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
 
@@ -242,23 +246,6 @@ class _DirichletGPClassifier(gpytorch.models.ExactGP):
         covar_x = self.covar_module(x)
         return gpytorch.distributions.MultivariateNormal(mean_x, covar_x)
 
-    def _predict_tensor(self, x: torch.Tensor) -> tuple[list, ...]:
-        x_list = [x.clone()] * self.num_classes
-        with (
-            torch.no_grad(),
-            gpytorch.settings.fast_pred_var(),
-            gpytorch.settings.observation_nan_policy("mask"),
-            gpytorch.settings.cholesky_jitter(1e-5),
-            warnings.catch_warnings(),
-        ):
-            warnings.simplefilter("ignore", GPInputWarning)
-            yhat_test_logits = [m(x_) for x_, m in zip(x_list, self.models)]
-            yhat_means = [l.loc for l in yhat_test_logits]
-            yhat_classes = [l.max(0)[1] for l in yhat_means]
-            yhat_samples = [l.sample(torch.Size((256,))).exp() for l in yhat_test_logits]
-            yhat_proba = [(yhat_samples[i] / yhat_samples[i].sum(-2, keepdim=True)).mean(0) for i in range(len(x_list))]
-        return yhat_classes, yhat_proba
-    
 
 class _MultitaskDirichletGPClassifier(gpytorch.models.IndependentModelList):
     def __init__(self, sub_models):
@@ -266,8 +253,8 @@ class _MultitaskDirichletGPClassifier(gpytorch.models.IndependentModelList):
         self.sub_models = sub_models
 
     def _predict(self, x: torch.Tensor) -> tuple[np.ndarray, np.ndarray]:
-        predictions = []
-        probas = []
+        cls_list = []
+        prob_list = []
 
         for model in self.sub_models:
             model.eval()
@@ -280,21 +267,19 @@ class _MultitaskDirichletGPClassifier(gpytorch.models.IndependentModelList):
                 warnings.catch_warnings(),
             ):
                 warnings.simplefilter("ignore", GPInputWarning)
-                latent = model(x)
-                # latent is a MultivariateNormal with batch_shape=(num_classes,)
-                samples = latent.sample(torch.Size((256,)))   # (n_samples_mc, num_classes, n_points)
-                alpha = samples.exp()
-                proba_samples = alpha / alpha.sum(dim=1, keepdim=True)   # normalize over class axis
-                proba = proba_samples.mean(dim=0).transpose(0, 1)        # (n_points, num_classes)
-                cls = proba.argmax(dim=1)
-                proba = proba.detach().cpu().numpy()
+                latent_dist = model(x)
+                alpha_samples = latent_dist.sample(torch.Size((256,))).exp()
+                prob_samples = alpha_samples / alpha_samples.sum(dim=1, keepdim=True)
+                prob = prob_samples.mean(dim=0).transpose(0, 1)
+                cls = prob.argmax(dim=1)
+                prob = prob.detach().cpu().numpy()
                 cls = cls.detach().cpu().numpy()
-                predictions.append(cls)
-                probas.append(proba)
+                cls_list.append(cls)
+                prob_list.append(prob)
 
-        predictions = np.stack(predictions, axis=1)
-        probas = np.stack(probas, axis=1)
-        return predictions, probas
+        cls = np.stack(cls_list, axis=1)
+        prob = np.stack(prob_list, axis=1)
+        return cls, prob
 
 
 @register_model("multitask_dirichlet")
@@ -364,8 +349,8 @@ class MultiOutputDirichlet(BaseTorchModel):
         )
     
     def _predict_tensor(self, x: torch.Tensor, *, return_std: bool = False):
-        pred, proba = self.gp_model._predict(x)
-        return {"pred": pred, "proba": proba}
+        cls, prob = self.gp_model._predict(x)
+        return {"cls": cls, "prob": prob}
 
     def _format_prediction(
         self,
@@ -374,11 +359,80 @@ class MultiOutputDirichlet(BaseTorchModel):
         input_kind: str,
         return_std: bool = False,
         return_bounds: bool = False,
+        ordinal: bool = False,
     ):
-        pred = raw["pred"]
-        proba = raw["proba"]
-        pred_pd = self._to_pandas(pred, columns=self.spec.targets, input_kind=input_kind)
+        cls = raw["cls"]
+        prob = raw["prob"]
+        cls_pd = self._to_pandas(cls, columns=self.spec.targets, input_kind=input_kind)
+
+        if not ordinal:
+            return {
+                "cls": cls_pd,
+                "prob": prob,
+            }
+
+        prob = np.asarray(prob, dtype=np.float64)
+
+        if prob.ndim != 3:
+            raise ValueError(
+                "ordinal=True expects raw['prob'] to have shape "
+                "(n_samples, n_targets, n_classes)."
+            )
+
+        n_samples, n_targets, n_classes = prob.shape
+
+        if n_classes != 2:
+            raise ValueError(
+                "ordinal=True requires binary one-vs-rest targets, "
+                f"but got n_classes={n_classes}."
+            )
+
+        # Positive-class probabilities for each binary target/head.
+        # Assumes columns/targets are ordered ascending and correspond to:
+        # P(Y >= 1), P(Y >= 2), ..., P(Y >= K)
+        cum_prob = prob[:, :, 1]
+
+        # Numerical safety.
+        cum_prob = np.clip(cum_prob, 0.0, 1.0)
+
+        # Enforce monotone non-increasing cumulative probabilities across
+        # ascending thresholds so that:
+        # P(Y >= 1) >= P(Y >= 2) >= ... >= P(Y >= K)
+        cum_prob = np.minimum.accumulate(cum_prob, axis=1)
+
+        # Recover class probabilities:
+        # P(Y=0)   = 1 - P(Y>=1)
+        # P(Y=k)   = P(Y>=k) - P(Y>=k+1), k=1,...,K-1
+        # P(Y=K)   = P(Y>=K)
+        ordinal_prob = np.empty((n_samples, n_targets + 1), dtype=np.float64)
+        ordinal_prob[:, 0] = 1.0 - cum_prob[:, 0]
+        ordinal_prob[:, 1:-1] = cum_prob[:, :-1] - cum_prob[:, 1:]
+        ordinal_prob[:, -1] = cum_prob[:, -1]
+
+        # Final cleanup for numerical stability.
+        ordinal_prob = np.clip(ordinal_prob, 0.0, 1.0)
+        row_sums = ordinal_prob.sum(axis=1, keepdims=True)
+        zero_rows = row_sums.squeeze(-1) <= 0.0
+        row_sums[zero_rows] = 1.0
+        ordinal_prob = ordinal_prob / row_sums
+
+        ordinal_columns = [f"class_{i}" for i in range(n_targets + 1)]
+        ordinal_prob_pd = self._to_pandas(
+            ordinal_prob,
+            columns=ordinal_columns,
+            input_kind=input_kind,
+        )
+
+        ordinal_cls = ordinal_prob.argmax(axis=1)
+        ordinal_cls_pd = self._to_pandas(
+            ordinal_cls.reshape(-1, 1),
+            columns=["cls_ordinal"],
+            input_kind=input_kind,
+        )
+
         return {
-            "pred": pred_pd,
-            "proba": proba,
+            "cls": cls_pd,
+            "prob": prob,
+            "cls_ordinal": ordinal_cls_pd,
+            "prob_ordinal": ordinal_prob_pd,
         }

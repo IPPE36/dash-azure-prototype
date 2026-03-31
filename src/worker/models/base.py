@@ -37,6 +37,7 @@ class PredictMixin(ABC):
         input_kind: str,
         return_std: bool = False,
         return_bounds: bool = False,
+        ordinal: bool = False,
     ):
         raise NotImplementedError
 
@@ -83,23 +84,41 @@ class PredictMixin(ABC):
 
     def _inv_transform_y(self, y: np.ndarray) -> np.ndarray:
         p = self.prep
+        y = np.asarray(y, dtype=np.float64)
+
         if p.scaler_y is not None:
             return p.scaler_y.inverse_transform(y)
-        if p.scaler_y_list is not None:
-            y = y.copy()
-            for i, scaler in enumerate(p.scaler_y_list):
-                y[:, i:i + 1] = scaler.inverse_transform(y[:, i:i + 1])
+
         return y
 
-    def _inv_transform_y_std(self, std: np.ndarray) -> np.ndarray:
+    def _inv_transform_y_stats(
+        self,
+        mean: np.ndarray,
+        std: np.ndarray,
+        *,
+        z: float = 1.96,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+        """
+        Inverse-transform Gaussian predictions from scaled space to original space.
+
+        Instead of scaling std directly, compute Gaussian lower/upper bounds in
+        scaled space, inverse-transform those bounds, and then recompute std in
+        original space from the transformed interval.
+
+        Returns
+        -------
+        mean_unscaled, std_unscaled, lower_unscaled, upper_unscaled
+        """
         p = self.prep
+        mean = np.asarray(mean, dtype=np.float64)
+        std = np.asarray(std, dtype=np.float64)
+
         if p.scaler_y is not None:
-            return _scale_std(std, p.scaler_y)
-        if p.scaler_y_list is not None:
-            std = std.copy()
-            for i, scaler in enumerate(p.scaler_y_list):
-                std[:, i:i + 1] = _scale_std(std[:, i:i + 1], scaler)
-        return std
+            return _inverse_transform_gaussian_stats(mean, std, p.scaler_y, z=z)
+
+        lower = mean - z * std
+        upper = mean + z * std
+        return mean, std, lower, upper
 
     @torch.inference_mode()
     def predict(
@@ -110,6 +129,7 @@ class PredictMixin(ABC):
         clip_bounds: BoundsDict = None,
         return_std: bool = False,
         return_bounds: bool = False,
+        ordinal: bool = False,
     ) -> Any:
         """
         High-level inference entry point.
@@ -128,6 +148,9 @@ class PredictMixin(ABC):
             }
         """
 
+        if self.task_type != "classification":
+            if ordinal:
+                raise ValueError("'ordinal' is only supported for classification models.")
         if self.task_type != "regression":
             if clip_bounds is not None:
                 raise ValueError("'clip_bounds' is only supported for regression models.")
@@ -147,6 +170,7 @@ class PredictMixin(ABC):
             input_kind=input_kind,
             return_std=return_std,
             return_bounds=return_bounds,
+            ordinal=ordinal,
         )
 
         if self.task_type == "regression" and clip_bounds:
@@ -189,12 +213,37 @@ class PredictMixin(ABC):
         return y
 
 
-def _scale_std(std: np.ndarray, scaler) -> np.ndarray:
-    if hasattr(scaler, "min_") and hasattr(scaler, "scale_"):
-        return std / scaler.scale_
-    if hasattr(scaler, "scale_"):
-        return std * scaler.scale_
-    return std
+def _inverse_transform_gaussian_stats(
+    mean: np.ndarray,
+    std: np.ndarray,
+    scaler,
+    z: float = 1.96,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Transform Gaussian mean/std from scaled space to original space by:
+      1. computing lower/upper bounds in scaled space
+      2. inverse-transforming mean/lower/upper
+      3. recomputing std in original space assuming Gaussian symmetry:
+            std_unscaled = (upper_unscaled - lower_unscaled) / (2 * z)
+
+    Returns
+    -------
+    mean_unscaled, std_unscaled, lower_unscaled, upper_unscaled
+    """
+    mean = np.asarray(mean, dtype=np.float64)
+    std = np.asarray(std, dtype=np.float64)
+
+    lower = mean - z * std
+    upper = mean + z * std
+
+    mean_unscaled = scaler.inverse_transform(mean)
+    lower_unscaled = scaler.inverse_transform(lower)
+    upper_unscaled = scaler.inverse_transform(upper)
+
+    std_unscaled = (upper_unscaled - lower_unscaled) / (2.0 * z)
+    std_unscaled = np.maximum(std_unscaled, 0.0)
+
+    return mean_unscaled, std_unscaled, lower_unscaled, upper_unscaled
 
 
 class BaseTorchModel(torch.nn.Module, PredictMixin):
