@@ -140,84 +140,150 @@ def plot_true_vs_predicted(
     show: bool = True,
     filepath: str = None,
 ):
+    y_true = np.asarray(y_true, dtype=float)
+    y_pred = np.asarray(y_pred, dtype=float)
+
     if y_true.ndim == 1:
         y_true = y_true.reshape(-1, 1)
     if y_pred.ndim == 1:
         y_pred = y_pred.reshape(-1, 1)
-    if y_true_test is not None and y_true_test.ndim == 1:
-        y_true_test = y_true_test.reshape(-1, 1)
-    if y_pred_test is not None and y_pred_test.ndim == 1:
-        y_pred_test = y_pred_test.reshape(-1, 1)
+
+    if y_std is not None:
+        y_std = np.asarray(y_std, dtype=float)
+        if y_std.ndim == 1:
+            y_std = y_std.reshape(-1, 1)
+
+    if y_true_test is not None:
+        y_true_test = np.asarray(y_true_test, dtype=float)
+        if y_true_test.ndim == 1:
+            y_true_test = y_true_test.reshape(-1, 1)
+
+    if y_pred_test is not None:
+        y_pred_test = np.asarray(y_pred_test, dtype=float)
+        if y_pred_test.ndim == 1:
+            y_pred_test = y_pred_test.reshape(-1, 1)
+
+    if y_std_test is not None:
+        y_std_test = np.asarray(y_std_test, dtype=float)
+        if y_std_test.ndim == 1:
+            y_std_test = y_std_test.reshape(-1, 1)
 
     n_targets = y_true.shape[1]
     labels = target_cols or [f"y{i}" for i in range(n_targets)]
+    filepath = Path(filepath) if filepath is not None else None
 
     for idx in range(n_targets):
         fig, ax = plt.subplots(figsize=(4, 4))
 
-        true_vals = y_true[:, idx]
-        pred_vals = y_pred[:, idx]
-        vmin = min(true_vals.min(), pred_vals.min())
-        vmax = max(true_vals.max(), pred_vals.max())
+        plot_vals = []
 
         # --- TRAIN ---
-        if y_std is not None and show_std:
-            std_vals = y_std[:, idx]
-            ax.errorbar(
-                true_vals, pred_vals,
-                yerr=std_vals,
-                fmt="none",
-                ecolor="black",
-                alpha=0.3,
-                elinewidth=1.0,
-                capsize=0,
-            )
-        ax.scatter(true_vals, pred_vals, alpha=0.66, color="black", label="Train", marker=".")
+        true_vals = y_true[:, idx]
+        pred_vals = y_pred[:, idx]
 
-        # --- TEST ---
-        if y_true_test is not None and y_pred_test is not None:
-            true_vals_test = y_true_test[:, idx]
-            pred_vals_test = y_pred_test[:, idx]
+        train_mask = ~np.isnan(true_vals) & ~np.isnan(pred_vals)
+        true_plot = true_vals[train_mask]
+        pred_plot = pred_vals[train_mask]
 
-            vmin = min(vmin, true_vals_test.min(), pred_vals_test.min())
-            vmax = max(vmax, true_vals_test.max(), pred_vals_test.max())
-
-            if y_std_test is not None and show_std:
-                std_vals_test = y_std_test[:, idx]
+        if true_plot.size > 0:
+            if y_std is not None and show_std:
+                std_vals = y_std[:, idx]
+                err_mask = train_mask & ~np.isnan(std_vals)
                 ax.errorbar(
-                    true_vals_test, pred_vals_test,
-                    yerr=std_vals_test,
+                    true_vals[err_mask],
+                    pred_vals[err_mask],
+                    yerr=std_vals[err_mask],
                     fmt="none",
-                    ecolor="red",
+                    ecolor="black",
                     alpha=0.3,
                     elinewidth=1.0,
                     capsize=0,
                 )
-            ax.scatter(true_vals_test, pred_vals_test, alpha=0.66, color="red", label="Test", marker=".")
 
-        # --- DIAGONAL ---
-        ax.plot(
-            [vmin, vmax],
-            [vmin, vmax],
-            linestyle="--",
-            linewidth=1.0,
-            color="black",
-            alpha=0.66,
-        )
+            ax.scatter(
+                true_plot,
+                pred_plot,
+                alpha=0.66,
+                color="black",
+                label="Train",
+                marker=".",
+            )
+            plot_vals.extend([true_plot, pred_plot])
 
-        ax.set_xlim(vmin, vmax)
-        ax.set_ylim(vmin, vmax)
+        # --- TEST ---
+        has_test = y_true_test is not None and y_pred_test is not None
+        if has_test:
+            true_vals_test = y_true_test[:, idx]
+            pred_vals_test = y_pred_test[:, idx]
+
+            test_mask = ~np.isnan(true_vals_test) & ~np.isnan(pred_vals_test)
+            true_plot_test = true_vals_test[test_mask]
+            pred_plot_test = pred_vals_test[test_mask]
+
+            if true_plot_test.size > 0:
+                if y_std_test is not None and show_std:
+                    std_vals_test = y_std_test[:, idx]
+                    err_mask_test = test_mask & ~np.isnan(std_vals_test)
+                    ax.errorbar(
+                        true_vals_test[err_mask_test],
+                        pred_vals_test[err_mask_test],
+                        yerr=std_vals_test[err_mask_test],
+                        fmt="none",
+                        ecolor="red",
+                        alpha=0.3,
+                        elinewidth=1.0,
+                        capsize=0,
+                    )
+
+                ax.scatter(
+                    true_plot_test,
+                    pred_plot_test,
+                    alpha=0.66,
+                    color="red",
+                    label="Test",
+                    marker=".",
+                )
+                plot_vals.extend([true_plot_test, pred_plot_test])
+
+        # --- LIMITS / DIAGONAL ---
+        if plot_vals:
+            all_vals = np.concatenate(plot_vals)
+            vmin = np.nanmin(all_vals)
+            vmax = np.nanmax(all_vals)
+
+            if np.isfinite(vmin) and np.isfinite(vmax):
+                if vmin == vmax:
+                    pad = 1.0 if vmin == 0 else abs(vmin) * 0.05
+                    vmin -= pad
+                    vmax += pad
+
+                ax.plot(
+                    [vmin, vmax],
+                    [vmin, vmax],
+                    linestyle="--",
+                    linewidth=1.0,
+                    color="black",
+                    alpha=0.66,
+                )
+                ax.set_xlim(vmin, vmax)
+                ax.set_ylim(vmin, vmax)
+        else:
+            ax.text(
+                0.5, 0.5, "No valid rows",
+                ha="center", va="center",
+                transform=ax.transAxes,
+            )
+
         ax.grid(True, alpha=0.5, linewidth=0.6)
         ax.set_xlabel("True")
         ax.set_ylabel("Predicted")
         ax.set_title(f"{labels[idx]}")
 
-        if y_true_test is not None and y_pred_test is not None:
+        if has_test:
             ax.legend(frameon=False)
 
         plt.tight_layout()
         if filepath is not None:
-            filepath = Path(filepath)
             out_path = filepath.with_name(
                 f"{filepath.stem}_{labels[idx]}{filepath.suffix}"
             )
@@ -225,6 +291,7 @@ def plot_true_vs_predicted(
         if show:
             plt.show()
         plt.close()
+
     return
 
 

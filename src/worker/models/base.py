@@ -67,10 +67,10 @@ class PredictMixin(ABC):
         if x.ndim == 1:
             x = x.reshape(1, -1)
 
-        if x.shape[1] != len(self.spec.features):
-            raise ValueError(
-                f"Expected {len(self.spec.features)} features, got {x.shape[1]}."
-            )
+        # if x.shape[1] != len(self.spec.features):
+        #     raise ValueError(
+        #         f"Expected {len(self.spec.features)} features, got {x.shape[1]}."
+        #     )
 
         return x, input_kind
 

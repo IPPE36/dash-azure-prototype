@@ -57,7 +57,7 @@ def log_data_summary(
 ) -> dict[str, np.ndarray]:
     """
     Log per-target metrics (R2, MAPE, PICP) plus dataset summary.
-    Returns a dict with raw arrays for downstream use.
+    Handles NaNs by filtering invalid rows separately for each target.
     """
     y_true = np.asarray(y_true, dtype=float)
     if y_true.ndim == 1:
@@ -68,12 +68,17 @@ def log_data_summary(
         if y_pred.ndim == 1:
             y_pred = y_pred.reshape(-1, 1)
 
-    n_features = len(feature_cols)
-    n_targets = len(target_cols)
-    labels = target_cols or [f"y{i}" for i in range(n_targets)]
+    if y_std is not None:
+        y_std = np.asarray(y_std, dtype=float)
+        if y_std.ndim == 1:
+            y_std = y_std.reshape(-1, 1)
 
     n_obs = int(y_true.shape[0]) if y_true.ndim >= 1 else 0
+    n_features = len(feature_cols) if feature_cols is not None else 0
+    n_targets = y_true.shape[1]
+    labels = target_cols or [f"y{i}" for i in range(n_targets)]
     non_nan_targets = int(np.sum(~np.isnan(y_true))) if y_true.size else 0
+
     logger.info(
         "%s: n_obs=%d n_features=%d n_targets=%d non_nan_targets=%d",
         phase,
@@ -86,15 +91,59 @@ def log_data_summary(
     if y_pred is None:
         return {"r2": None, "mape": None, "picp": None}
 
-    r2_vals = r2_score(y_true, y_pred, multioutput="raw_values")
-    mape_vals = mape(y_true, y_pred=y_pred, multioutput="raw_values")
-
-    picp_vals = None
-    if y_std is not None:
-        picp_vals = picp(y_true, y_pred=y_pred, y_std=y_std, multioutput="raw_values")
+    r2_vals = np.full(n_targets, np.nan, dtype=float)
+    mape_vals = np.full(n_targets, np.nan, dtype=float)
+    picp_vals = np.full(n_targets, np.nan, dtype=float) if y_std is not None else None
 
     logger.info("%s metrics per target:", phase)
+
     for i, name in enumerate(labels):
+        yt = y_true[:, i]
+        yp = y_pred[:, i]
+
+        mask = ~np.isnan(yt) & ~np.isnan(yp)
+
+        ys = None
+        if y_std is not None:
+            ys = y_std[:, i]
+            mask &= ~np.isnan(ys)
+
+        yt = yt[mask]
+        yp = yp[mask]
+        if ys is not None:
+            ys = ys[mask]
+
+        if yt.size == 0:
+            logger.info("  %s | no valid rows", name)
+            continue
+
+        # r2_score can fail or warn when fewer than 2 samples remain
+        if yt.size >= 2:
+            try:
+                r2_vals[i] = r2_score(yt, yp)
+            except Exception:
+                pass
+
+        try:
+            mape_vals[i] = mape(
+                yt.reshape(-1, 1),
+                y_pred=yp.reshape(-1, 1),
+                multioutput="raw_values",
+            )[0]
+        except Exception:
+            pass
+
+        if ys is not None:
+            try:
+                picp_vals[i] = picp(
+                    yt.reshape(-1, 1),
+                    y_pred=yp.reshape(-1, 1),
+                    y_std=ys.reshape(-1, 1),
+                    multioutput="raw_values",
+                )[0]
+            except Exception:
+                pass
+
         if picp_vals is not None:
             logger.info(
                 "  %s | R2=%.4f MAPE=%.4f PICP(%.0f%%)=%.4f",

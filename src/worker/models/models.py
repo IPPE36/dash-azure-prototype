@@ -1,4 +1,5 @@
 from pathlib import Path
+import math
 
 import numpy as np
 import torch
@@ -80,15 +81,33 @@ class MLPRegressor(BaseTorchModel):
 class _MultitaskExactGPModel(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, num_tasks: int, *, covar_rank: int = 1):
         super().__init__(train_x, train_y, likelihood)
+
+        d = train_x.shape[-1]
+
+        base_mean = gpytorch.means.LinearMean(input_size=d, bias=True)
         self.mean_module = gpytorch.means.MultitaskMean(
-            gpytorch.means.LinearMean(input_size=train_x.shape[-1], bias=True),
+            base_mean,
             num_tasks=num_tasks,
         )
+
+        base_covar = gpytorch.kernels.RQKernel(
+            ard_num_dims=d,
+        )
         self.covar_module = gpytorch.kernels.MultitaskKernel(
-            gpytorch.kernels.RQKernel(),
+            base_covar,
             num_tasks=num_tasks,
             rank=covar_rank,
         )
+
+        # ---- manual initialization ----
+        # self.mean_module.initialize(
+        #     weights=torch.zeros(self.num_classes, 1, d),
+        #     bias=torch.zeros(self.num_classes, 1),
+        # )
+        # self.covar_module.initialize(
+        #     lengthscale=torch.ones(self.num_classes, 1, d),
+        #     alpha=torch.ones(self.num_classes, 1)
+        # )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
@@ -96,13 +115,45 @@ class _MultitaskExactGPModel(gpytorch.models.ExactGP):
         return gpytorch.distributions.MultitaskMultivariateNormal(mean_x, covar_x)
 
 
-@register_model("multitask_gp")
-class MultiOutputExactGP(BaseTorchModel):
-    """
-    Basic multi-output Exact GP model (gpytorch).
-    Expects aux.train_x and aux.train_y.
-    """
+class _MultitaskExactGPLinearModel(gpytorch.models.ExactGP):
+    def __init__(self, train_x, train_y, likelihood, num_tasks: int, *, covar_rank: int = 1):
+        super().__init__(train_x, train_y, likelihood)
+
+        d = train_x.shape[-1]
+
+        base_mean = gpytorch.means.LinearMean(input_size=d, bias=True)
+        self.mean_module = gpytorch.means.MultitaskMean(
+            base_mean,
+            num_tasks=num_tasks,
+        )
+
+        base_covar = gpytorch.kernels.LinearKernel(
+            ard_num_dims=d,
+        )
+        self.covar_module = gpytorch.kernels.MultitaskKernel(
+            base_covar,
+            num_tasks=num_tasks,
+            rank=covar_rank,
+        )
+
+        # ---- manual initialization ----
+        # base_mean.initialize(
+        #     weights=torch.zeros(1, d),
+        #     bias=torch.tensor(0.5),
+        # )
+        # base_covar.initialize(
+        #     variance=torch.ones(1, d),
+        # )
+
+    def forward(self, x):
+        mean_x = self.mean_module(x)
+        covar_x = self.covar_module(x)
+        return gpytorch.distributions.MultitaskMultivariateNormal(mean_x, covar_x)
+    
+
+class _BaseMultiOutputExactGP(BaseTorchModel):
     task_type = "regression"
+    gp_model_cls = _MultitaskExactGPModel
 
     def __init__(self, spec: ModelConfig, prep: PreprocessConfig = None, aux: AuxilaryData = None) -> None:
         super().__init__(spec=spec, prep=prep, aux=aux)
@@ -134,29 +185,17 @@ class MultiOutputExactGP(BaseTorchModel):
 
         num_tasks = self.spec.output_dim
 
-        covar_rank = int(self.spec.model_kwargs.get(
-            "covar_rank",
-            1,
-        ))
-        has_task_noise = bool(self.spec.model_kwargs.get(
-            "has_task_noise",
-            num_tasks > 1,
-        ))
-        has_global_noise = bool(self.spec.model_kwargs.get(
-            "has_global_noise",
-            True,
-        ))
-        noise_rank = int(self.spec.model_kwargs.get(
-            "noise_rank", 
-            0 if num_tasks == 1 else 1,
-        ))
+        covar_rank = int(self.spec.model_kwargs.get("covar_rank", 1))
+        has_task_noise = bool(self.spec.model_kwargs.get("has_task_noise", num_tasks > 1))
+        has_global_noise = bool(self.spec.model_kwargs.get("has_global_noise", True))
+        noise_rank = int(self.spec.model_kwargs.get("noise_rank", 0 if num_tasks == 1 else 1))
         noise_prior = self.spec.model_kwargs.get(
             "noise_prior",
-            GammaPrior(2.0, 100.0),  # for minmax targets
+            GammaPrior(2.0, 100.0),
         )
         noise_constraint = self.spec.model_kwargs.get(
             "noise_constraint",
-            gpytorch.constraints.GreaterThan(1e-5),  # for moderately noisy targets
+            gpytorch.constraints.GreaterThan(1e-5),
         )
 
         self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
@@ -167,7 +206,8 @@ class MultiOutputExactGP(BaseTorchModel):
             noise_prior=noise_prior,
             noise_constraint=noise_constraint,
         )
-        self.gp_model = _MultitaskExactGPModel(
+
+        self.gp_model = self.gp_model_cls(
             train_x,
             train_y,
             self.likelihood,
@@ -225,6 +265,16 @@ class MultiOutputExactGP(BaseTorchModel):
 
         mean = self._inv_transform_y(raw)
         return self._to_pandas(mean, columns=self.spec.targets, input_kind=input_kind)
+    
+
+@register_model("multitask_gp")
+class MultiOutputExactGP(_BaseMultiOutputExactGP):
+    gp_model_cls = _MultitaskExactGPModel
+
+
+@register_model("multitask_gp_linear")
+class MultiOutputExactGPLinear(_BaseMultiOutputExactGP):
+    gp_model_cls = _MultitaskExactGPLinearModel
 
 
 class _DirichletGPClassifier(gpytorch.models.ExactGP):
@@ -234,12 +284,25 @@ class _DirichletGPClassifier(gpytorch.models.ExactGP):
         self.targets = [target]
         self.num_classes = num_classes
         self.batch_shape = torch.Size((self.num_classes,))
+        d = len(self.features)
+
         self.mean_module = gpytorch.means.LinearMean(
-            batch_shape=self.batch_shape, input_size=len(self.features)
+            batch_shape=self.batch_shape,
+            input_size=len(self.features)
         )
         self.covar_module = (
             gpytorch.kernels.RQKernel(batch_shape=self.batch_shape)
         )
+
+        # ---- manual initialization ----
+        # self.mean_module.initialize(
+        #     weights=torch.zeros(self.num_classes, 1, d),
+        #     bias=torch.zeros(self.num_classes, 1),
+        # )
+        # self.covar_module.initialize(
+        #     lengthscale=torch.ones(self.num_classes, 1, d),
+        #     alpha=torch.ones(self.num_classes, 1),
+        # )
 
     def forward(self, x):
         mean_x = self.mean_module(x)
