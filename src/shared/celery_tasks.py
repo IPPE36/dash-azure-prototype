@@ -23,8 +23,8 @@ def long_task(self, x: int, *, task_id: int) -> None:
     update_task(task_id, status="RUNNING")
 
     try:
-        from worker.runtime import get_runtime
-        runtime = get_runtime()
+        from worker.runtime import configure_runtime
+        runtime = configure_runtime()
         result = runtime.predict(x)
 
         progress = 0
