@@ -10,6 +10,7 @@ class ModelConfig:
     model_type: str
     features: list[str]
     targets: list[str]
+    requires_aux: bool
     model_kwargs: dict[str, Any] = field(default_factory=dict)
 
     @property

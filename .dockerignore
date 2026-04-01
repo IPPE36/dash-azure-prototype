@@ -5,7 +5,6 @@ __pycache__/
 **/__pycache__/
 *.pyc
 *.pyo
-*.log
 .idea/
 .vscode/
 .venv/
@@ -17,5 +16,5 @@ ml/data/examples
 ml/notebooks/
 ml/scripts/
 ml/**/*.png
-**aux.pt
+ml/**/*.log
 *.ipynb

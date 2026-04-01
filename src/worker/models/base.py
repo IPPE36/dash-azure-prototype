@@ -211,6 +211,47 @@ class PredictMixin(ABC):
         if input_kind == "series":
             return pd.Series(y[0], index=columns)
         return y
+    
+    def predict_random(
+        self,
+        n: int = 1,
+        *,
+        low: float = 0.0,
+        high: float = 1.0,
+        device: str | torch.device = "cpu",
+        seed: int | None = None,
+        return_std: bool = False,
+        return_bounds: bool = False,
+        ordinal: bool = False,
+    ):
+        """
+        Generate random inputs and run a forward prediction.
+        Useful for smoke testing model wiring during setup.
+        Parameters
+        ----------
+        n:
+            Number of samples.
+        low, high:
+            Range for uniform random input generation.
+        seed:
+            Optional RNG seed for reproducibility.
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        x = np.random.uniform(
+            low=low,
+            high=high,
+            size=(n, self.spec.input_dim),
+        )
+
+        return self.predict(
+            x,
+            device=device,
+            return_std=return_std,
+            return_bounds=return_bounds,
+            ordinal=ordinal,
+        )
 
 
 def _inverse_transform_gaussian_stats(

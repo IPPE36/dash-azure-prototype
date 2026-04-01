@@ -8,7 +8,7 @@ from .base import BaseTrainer
 from .registry import register_trainer
 
 
-@register_trainer("mlp_regressor")
+@register_trainer("mlp")
 class MLPTrainer(BaseTrainer):
     def __init__(
         self,
@@ -147,8 +147,8 @@ class MLPTrainer(BaseTrainer):
         }
 
 
-@register_trainer("multitask_gp")
-class MultiTaskGPTrainer(BaseTrainer):
+@register_trainer("gpr")
+class GPRTrainer(BaseTrainer):
     def __init__(
         self,
         model,
@@ -204,8 +204,8 @@ class MultiTaskGPTrainer(BaseTrainer):
     
 
 
-@register_trainer("multitask_dirichlet")
-class MultiTaskDirichletTrainer(BaseTrainer):
+@register_trainer("gpc")
+class GPCTrainer(BaseTrainer):
     def __init__(
         self,
         model,

@@ -20,9 +20,8 @@ def configure_torch() -> None:
     try:
         # Keep this safe: no hard dependency if torch is not installed
         import torch
-
-        """Prefer CUDA when available, otherwise fall back to CPU"""
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        from .device import get_default_device
+        device = get_default_device()
         logger.info(f"torch.default_device={device}")
 
     except Exception as exc:

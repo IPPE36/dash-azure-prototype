@@ -12,6 +12,11 @@ from .log import (
     init_ml_logger,
     log_data_summary,
 )
+from .trainers import (
+    MLPTrainer,
+    GPRTrainer,
+    GPCTrainer,
+)
 
 __all__ = [
     "plot_pca_cumulative_variance",
@@ -22,4 +27,7 @@ __all__ = [
     "mape",
     "init_ml_logger",
     "log_data_summary",
+    "MLPTrainer",
+    "GPRTrainer",
+    "GPCTrainer",
 ]

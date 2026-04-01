@@ -58,12 +58,36 @@ celery_app.conf.update(
     },
 )
 
+
 @worker_process_init.connect
 def warm_up_worker(**kwargs):
-    # Runs once per worker process; -> large models are reused and not loaded again.
-    from shared.log import configure_logs
-    configure_logs()
-    from worker.torch_utils.bootstrap import configure_torch
-    configure_torch()
-    from worker.runtime import configure_runtime
-    configure_runtime()
+    logger.info("[@worker_process_init] starting worker initialization...")
+
+    # try:
+    #     logger.info("Configuring logs...")
+    #     from shared.log import configure_logs
+    #     configure_logs()
+    #     logger.info("Logs configured successfully.")
+    # except Exception as e:
+    #     logger.exception(f"Failed to configure logs {e}")
+    #     raise
+
+    try:
+        logger.info("Configuring runtime...")
+        from worker.runtime import configure_runtime
+        configure_runtime()
+        logger.info("Runtime configured successfully.")
+    except Exception as e:
+        logger.exception(f"Failed to configure runtime {e}")
+        raise
+
+    try:
+        logger.info("Configuring torch...")
+        from worker.torch_utils.bootstrap import configure_torch
+        configure_torch()
+        logger.info("Torch configured successfully.")
+    except Exception as e:
+        logger.exception(f"Failed to configure torch {e}")
+        raise
+
+    logger.info("[@worker_process_init] Worker initialization completed.")

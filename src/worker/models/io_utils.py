@@ -35,7 +35,6 @@ class ArtifactIO:
         spec: ModelConfig, 
         prep: PreprocessConfig = None,
         aux: AuxilaryData = None,
-        allow_missing_aux: bool = False,
     ) -> None:
         
         artifact_dir = Path(artifact_dir)
@@ -56,7 +55,7 @@ class ArtifactIO:
         torch.save(state_dict, artifact_dir / cls.STATE_FILENAME)
         
         if aux is None or aux.train_x is None or aux.train_y is None:
-            if not allow_missing_aux:
+            if spec.requires_aux:
                 raise ValueError(
                     "AuxilaryData with train_x/train_y is required to save artifacts. "
                     "Set allow_missing_aux=True to skip saving aux."
@@ -72,7 +71,6 @@ class ArtifactIO:
         artifact_dir: str | Path,
         *,
         device: str | torch.device = "cpu",
-        allow_missing_aux: bool = False,
     ):
         
         artifact_dir = Path(artifact_dir)
@@ -87,7 +85,8 @@ class ArtifactIO:
         if aux_path.exists():
             with safe_globals([AuxilaryData]):
                 aux = torch.load(aux_path, map_location=device, weights_only=False)
-        elif not allow_missing_aux:
+
+        elif spec.requires_aux:
             raise FileNotFoundError(f"Missing aux file: {aux_path}")
         state_dict = torch.load(artifact_dir / cls.STATE_FILENAME, map_location=device)
 

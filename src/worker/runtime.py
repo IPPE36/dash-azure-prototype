@@ -1,13 +1,8 @@
 # src/worker/runtime.py
 
+from pathlib import Path
 from threading import Lock
 import logging
-
-from worker.config import (
-    TORCH_DEVICE,
-    MODEL_PATH,
-)
-
 
 logger = logging.getLogger(__name__)
 
@@ -18,15 +13,20 @@ _LOCK = Lock()
 class WorkerRuntime:
     def __init__(self):
         logger.info("initializing runtime...")
-        self.model = self._load_model()
+        self.model = self._load_models()
         logger.info("...runtime initialized")
 
-    def _load_model(self):
-        # Replace with real model load, e.g. torch/transformers pipeline.
-        try:
-            logger.info("loading model on device=%s path=%s", TORCH_DEVICE, MODEL_PATH)
-        except Exception:
-            pass
+    def _load_models(self):
+        from worker.config import MODEL_REPOSITORY_ROOT_PATH
+        from worker.torch_utils import get_default_device
+        from worker.models import ModelRepository
+
+        ModelRepository(
+            root=Path(MODEL_REPOSITORY_ROOT_PATH),
+            served_artifacts={"demo_gpr"},
+            device=get_default_device(),
+        )
+
         return "model-loaded"
 
     def predict(self, x: int) -> str:
