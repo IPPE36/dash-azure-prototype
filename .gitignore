@@ -1,6 +1,10 @@
+.venv/
+venv/
+.idea/
+.vscode/
 .env
 *.dump
 dev_users.json
 ml/data/
 ml/models/
-alembic/*.log
+alembic/versions/

@@ -15,7 +15,6 @@ from .config import (
     SECRET,
     TENANT_ID,
     AUTH_MODE,
-    LOG_LEVEL_SERVER,
 )
 
 __all__ = [
@@ -35,5 +34,4 @@ __all__ = [
     "SECRET",
     "TENANT_ID",
     "AUTH_MODE",
-    "LOG_LEVEL_SERVER",
 ]

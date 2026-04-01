@@ -82,22 +82,25 @@ services:
       retries: 10
 
   desktop-24h-backup:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: Dockerfile.backup
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
       - PGPASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_HOST=${POSTGRES_HOST:-postgres}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_DB=${POSTGRES_DB:-appdb}
       - BACKUP_INTERVAL_SECONDS=${BACKUP_INTERVAL_SECONDS:-86400}
       - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-180}
     mem_limit: 128m
     cpus: "0.1"
     volumes:
       - ./backups:/backups
-      - ./backups/scripts/backup-loop.sh:/usr/local/bin/backup-loop.sh:ro
     depends_on:
       postgres:
         condition: service_healthy
-    command: ["sh", "/usr/local/bin/backup-loop.sh"]
     restart: unless-stopped
 
   desktop-pytest:

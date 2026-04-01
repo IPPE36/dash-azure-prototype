@@ -47,7 +47,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 
 ############################
-# Runtime OS + shared deps only
+# Runtime OS + shared deps
 ############################
 FROM python:3.11-slim AS runtime-base
 WORKDIR /app
@@ -90,12 +90,9 @@ RUN --mount=type=cache,target=/home/app/.cache/pip \
 # App source layer
 ############################
 FROM runtime-base AS app-base
-
-# Copy app code only here, after dependency layers
 COPY --chown=app:app alembic.ini /app/alembic.ini
 COPY --chown=app:app alembic/ /app/alembic/
 COPY --chown=app:app src/ /app/src/
-
 RUN chmod +x /app/src/worker/entrypoint.sh /app/src/web/entrypoint.sh
 
 
@@ -113,7 +110,6 @@ RUN --mount=type=cache,target=/home/app/.cache/pip \
 FROM runtime-base AS worker-deps
 RUN --mount=type=cache,target=/home/app/.cache/pip \
     pip install --no-index --find-links=/torch-wheels torch
-
 RUN --mount=type=cache,target=/home/app/.cache/pip \
     pip install --no-index --find-links=/wheels -r /tmp/requirements/ml.txt
 
@@ -130,9 +126,7 @@ RUN --mount=type=cache,target=/home/app/.cache/pip \
 # Web image
 ############################
 FROM web-deps AS web
-
 COPY --from=app-base /app /app
-
 USER app
 EXPOSE 8050
 ENTRYPOINT ["/app/src/web/entrypoint.sh"]
@@ -143,12 +137,8 @@ CMD ["gunicorn", "-b", "0.0.0.0:8050", "web.app:server", "--workers", "2", "--th
 # Worker image
 ############################
 FROM worker-deps AS worker
-
 COPY --from=app-base /app /app
-
-# Keep frequently changing model artifacts late
 COPY --chown=app:app ml/models/artifacts/ /app/ml/models/artifacts/
-
 USER app
 ENTRYPOINT ["/app/src/worker/entrypoint.sh"]
 
@@ -157,7 +147,5 @@ ENTRYPOINT ["/app/src/worker/entrypoint.sh"]
 # Test image
 ############################
 FROM test-deps AS test
-
 COPY --from=app-base /app /app
-
 USER app
