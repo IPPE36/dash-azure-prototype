@@ -1,12 +1,5 @@
 numpy
 pandas
-matplotlib
 scikit-learn
-torch
-torchvision
-torchaudio
-joblib
 gpytorch
-jupyter
-tqdm
-openpyxl
+joblib

@@ -1,5 +1,5 @@
 
-from .runtime import ModelRuntime, get_runtime, configure_runtime
+from .runtime import WorkerRuntime, configure_runtime
 from .torch_utils import configure_torch
 from .config import (
     MODEL_PATH,
@@ -15,8 +15,7 @@ __all__ = [
     "TORCH_NUM_INTEROP_THREADS",
     "TORCH_NUM_THREADS",
     "MODEL_PATH",
-    "ModelRuntime",
-    "get_runtime",
+    "WorkerRuntime",
     "configure_runtime",
     "configure_torch",
 ]

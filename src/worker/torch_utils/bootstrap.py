@@ -3,7 +3,6 @@
 import logging
 
 from worker.config import (
-    TORCH_DEVICE,
     TORCH_MATMUL_PRECISION,
     TORCH_NUM_INTEROP_THREADS,
     TORCH_NUM_THREADS,
@@ -14,29 +13,38 @@ logger = logging.getLogger(__name__)
 
 
 def configure_torch() -> None:
-    """
-    One-time per-worker torch configuration.
-    Keep this safe: no hard dependency if torch is not installed.
-    """
+    """One-time per-worker torch configuration.
+    This function is called in shared.celery_app.py"""
+
+
     try:
+        # Keep this safe: no hard dependency if torch is not installed
         import torch
+
+        """Prefer CUDA when available, otherwise fall back to CPU"""
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        logger.info(f"torch.default_device={device}")
+
     except Exception as exc:
         logger.info("torch not available; skipping torch bootstrap (%s)", exc)
-        return
+        return None
 
-    device = TORCH_DEVICE.strip()
-    if device.startswith("cuda") and not torch.cuda.is_available():
-        logger.warning("TORCH_DEVICE=%s but CUDA not available; falling back to cpu", device)
-        device = "cpu"
-
-    # Thread controls (align with Celery concurrency to avoid oversubscription).
+    
     if TORCH_NUM_THREADS is not None:
-        torch.set_num_threads(TORCH_NUM_THREADS)
+        try:
+            # align with Celery concurrency to avoid oversubscription...
+            torch.set_num_threads(TORCH_NUM_THREADS)
+            logger.info(f"torch.set_num_threads={TORCH_NUM_THREADS}")
+        except Exception:
+            logger.info("torch.set_num_threads not supported")
 
     if TORCH_NUM_INTEROP_THREADS is not None:
-        torch.set_num_interop_threads(TORCH_NUM_INTEROP_THREADS)
+        try:
+            torch.set_num_interop_threads(TORCH_NUM_INTEROP_THREADS)
+            logger.info(f"torch.set_num_interop_threads={TORCH_NUM_INTEROP_THREADS}")
+        except Exception:
+            logger.info("torch.set_num_interop_threads not supported")
 
-    # Optional: matmul precision (PyTorch 2+). Safe-guard in older versions.
     if TORCH_MATMUL_PRECISION:
         precision = TORCH_MATMUL_PRECISION.strip().lower()
         allowed = {"highest", "high", "medium"}
@@ -49,12 +57,8 @@ def configure_torch() -> None:
         else:
             try:
                 torch.set_float32_matmul_precision(precision)
+                logger.info(f"torch.set_float32_matmul_precision={precision}")
             except Exception:
                 logger.info("torch.set_float32_matmul_precision not supported")
 
-    logger.info(
-        "torch bootstrap complete (device=%s threads=%s interop=%s)",
-        device,
-        TORCH_NUM_THREADS,
-        TORCH_NUM_INTEROP_THREADS,
-    )
+    return None

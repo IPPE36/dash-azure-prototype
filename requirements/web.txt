@@ -1,4 +1,3 @@
--r base.txt
 dash==2.14.2
 dash-extensions==0.1.13
 dash-bootstrap-components
