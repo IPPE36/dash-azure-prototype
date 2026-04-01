@@ -1,10 +1,11 @@
 from pathlib import Path
+import warnings
 
 import numpy as np
 import torch
 import gpytorch
-import warnings
 from gpytorch.utils.warnings import GPInputWarning
+from gpytorch.priors import GammaPrior
 
 from worker.models.base import BaseTorchModel
 from worker.models.registry import register_model
@@ -17,12 +18,23 @@ class _Dirichlet_GPC(gpytorch.models.ExactGP):
         super().__init__(train_x, train_y, likelihood)
         self.num_classes = num_classes
         self.batch_shape = torch.Size((self.num_classes,))
+        d = train_x.shape[1]
         self.mean_module = gpytorch.means.LinearMean(
             batch_shape=self.batch_shape,
-            input_size=train_x.shape[1]
+            input_size=d,
         )
-        self.covar_module = gpytorch.kernels.RQKernel(
-            batch_shape=self.batch_shape
+        base_kernel = gpytorch.kernels.RQKernel(
+            batch_shape=self.batch_shape,
+            ard_num_dims=d,
+            lengthscale_prior=GammaPrior(2.0, 1.0),
+            alpha_prior=GammaPrior(2.0, 1.0),
+            lengthscale_constraint=gpytorch.constraints.GreaterThan(1e-4),
+        )
+        self.covar_module = gpytorch.kernels.ScaleKernel(
+            base_kernel,
+            batch_shape=self.batch_shape,
+            outputscale_prior=GammaPrior(2.0, 1.0),
+            outputscale_constraint=gpytorch.constraints.GreaterThan(1e-4),
         )
 
     def forward(self, x):

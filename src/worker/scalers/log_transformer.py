@@ -10,7 +10,7 @@ class LogTransformer(BaseEstimator, TransformerMixin):
     Parameters:
     - standardize: bool, set true if you apply gaussian process regression.
     """
-    def __init__(self, standardize: bool = False, normalize: bool = True):
+    def __init__(self, standardize: bool = True, normalize: bool = False):
         self.std_out = StandardScaler()
         self.norm_out = MinMaxScaler()
         self.standardize = standardize

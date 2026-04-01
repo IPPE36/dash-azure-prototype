@@ -3,7 +3,7 @@ from pathlib import Path
 import torch
 import gpytorch
 import warnings
-from gpytorch.priors import GammaPrior
+from gpytorch.priors import GammaPrior, NormalPrior
 from gpytorch.utils.warnings import GPInputWarning
 
 from worker.models.base import BaseTorchModel
@@ -20,12 +20,36 @@ class _GPR(gpytorch.models.ExactGP):
             gpytorch.means.LinearMean(input_size=d, bias=True),
             num_tasks=num_tasks,
         )
+        base_kernel = gpytorch.kernels.RQKernel(
+            ard_num_dims=d,
+            lengthscale_prior=GammaPrior(2.0, 1.0),   # mean=2, mode=1
+            alpha_prior=GammaPrior(2.0, 1.0),         # mild preference for alpha ~ 1-2
+            lengthscale_constraint=gpytorch.constraints.GreaterThan(1e-4),
+        )
+        scaled_kernel = gpytorch.kernels.ScaleKernel(
+            base_kernel,
+            outputscale_prior=GammaPrior(2.0, 1.0),   # signal variance ~ O(1)
+            outputscale_constraint=gpytorch.constraints.GreaterThan(1e-4),
+        )
         self.covar_module = gpytorch.kernels.MultitaskKernel(
-            gpytorch.kernels.RQKernel(ard_num_dims=d),
+            scaled_kernel,
             num_tasks=num_tasks,
             rank=covar_rank,
         )
-    
+        # Optional: regularize linear mean a bit for standardized data
+        # Uncomment if you want the mean to stay conservative on small datasets:
+        self.mean_module.base_means[0].register_prior(
+            "weights_prior",
+            NormalPrior(0.0, 0.5),
+            "weights",
+        )
+        self.mean_module.base_means[0].register_prior(
+            "bias_prior",
+            NormalPrior(0.0, 0.5),
+            "bias",
+        )
+
+
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
@@ -36,16 +60,33 @@ class _GPRL(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, num_tasks: int, *, covar_rank: int = 1):
         super().__init__(train_x, train_y, likelihood)
         d = train_x.shape[-1]
+        device = train_x.device
         self.mean_module = gpytorch.means.MultitaskMean(
             gpytorch.means.LinearMean(input_size=d, bias=True),
             num_tasks=num_tasks,
         )
+        base_kernel = gpytorch.kernels.LinearKernel(
+            variance_prior=GammaPrior(2.0, 1.0),   
+            variance_constraint=gpytorch.constraints.GreaterThan(1e-4),
+        )
         self.covar_module = gpytorch.kernels.MultitaskKernel(
-            gpytorch.kernels.LinearKernel(ard_num_dims=d),
+            base_kernel,
             num_tasks=num_tasks,
             rank=covar_rank,
         )
-    
+        # Optional: regularize linear mean for standardized data
+        # Uncomment if you want a more conservative mean on small datasets.
+        self.mean_module.base_means[0].register_prior(
+            "weights_prior",
+            NormalPrior(0.0, 0.5),
+            "weights",
+        )
+        self.mean_module.base_means[0].register_prior(
+            "bias_prior",
+            NormalPrior(0.0, 0.5),
+            "bias",
+        )
+
     def forward(self, x):
         mean_x = self.mean_module(x)
         covar_x = self.covar_module(x)
@@ -103,11 +144,11 @@ class BaseGPR(BaseTorchModel):
         )
         noise_prior = self.spec.model_kwargs.get(
             "noise_prior",
-            GammaPrior(2.0, 100.0),
+            GammaPrior(2.0, 50.0)
         )
         noise_constraint = self.spec.model_kwargs.get(
             "noise_constraint",
-            gpytorch.constraints.GreaterThan(1e-5),
+            gpytorch.constraints.GreaterThan(1e-4),
         )
 
         self.likelihood = gpytorch.likelihoods.MultitaskGaussianLikelihood(
