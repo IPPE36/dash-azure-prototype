@@ -40,23 +40,36 @@ def configure_logs() -> None:
     if _CONFIGURED:
         return
     with _LOCK:
-        level = getattr(logging, LOG_LEVEL, logging.INFO)
-        root = logging.getLogger()
-        root.setLevel(level)
-
-        handler = logging.StreamHandler(stream=sys.stdout)
-        if LOG_FORMAT == "console":
-            handler.setFormatter(logging.Formatter(
-                "%(asctime)s %(levelname)s %(name)s %(message)s"
-            ))
-        elif LOG_FORMAT == "json":
-            handler.setFormatter(JsonFormatter())
-        else:
-            raise ValueError("LOG_FORMAT needs to be either 'console' or 'json'")
-
-        root.handlers.clear()
-        root.addHandler(handler)
+        if _CONFIGURED:
+            return
+        _init_log()
         _CONFIGURED = True
+
+
+def _init_log() -> None:
+    """make loggers propagate to root"""
+
+    level = getattr(logging, LOG_LEVEL.upper(), logging.INFO)
+
+    root = logging.getLogger()
+    root.setLevel(level)
+
+    handler = logging.StreamHandler(stream=sys.stdout)
+    if LOG_FORMAT == "console":
+        handler.setFormatter(logging.Formatter(
+            "%(asctime)s | %(processName)s | %(levelname)-8s | %(name)s | %(message)s",
+            datefmt="%H:%M:%S"
+        ))
+    elif LOG_FORMAT == "json":
+        handler.setFormatter(JsonFormatter())
+    else:
+        raise ValueError("LOG_FORMAT needs to be either 'console' or 'json'")
+
+    root.handlers[:] = [handler]
+    for name in ("celery", "celery.app.trace", "kombu"):
+        lg = logging.getLogger(name)
+        lg.handlers.clear()
+        lg.propagate = True
 
 
 def log_timed(

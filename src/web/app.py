@@ -30,10 +30,7 @@ from .config import (
     SCOPE,
     SECRET,
     AUTH_MODE,
-    LOG_LEVEL_SERVER,
 )
-
-configure_logs()
 
 app = DashProxy(
     name=__name__,
@@ -49,8 +46,12 @@ app = DashProxy(
 
 server = app.server
 server.secret_key = SECRET
-_log_level = getattr(logging, LOG_LEVEL_SERVER, logging.INFO)
-server.logger.setLevel(_log_level)
+
+configure_logs()
+for name in ("flask.app", "werkzeug"):
+    logger = logging.getLogger(name)
+    logger.handlers.clear()
+    logger.propagate = True
 
 # ProxyFix respects X-Forwarded-* headers behind reverse proxies (e.g. Azure),
 # so URL generation and scheme detection remain correct.

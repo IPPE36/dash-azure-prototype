@@ -16,7 +16,6 @@ def configure_torch() -> None:
     """One-time per-worker torch configuration.
     This function is called in shared.celery_app.py"""
 
-
     try:
         # Keep this safe: no hard dependency if torch is not installed
         import torch
@@ -27,7 +26,6 @@ def configure_torch() -> None:
     except Exception as exc:
         logger.info("torch not available; skipping torch bootstrap (%s)", exc)
         return None
-
     
     if TORCH_NUM_THREADS is not None:
         try:

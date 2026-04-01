@@ -5,11 +5,19 @@
 
 import logging
 
-from celery import Celery
-from celery.signals import worker_process_init
 from kombu import Queue
+from celery import Celery
+from celery.signals import (
+    worker_process_init,
+    setup_logging,
+    worker_ready,
+    task_prerun,
+    task_postrun,
+    task_failure,
+)
 
 from shared.config import CELERY_BROKER_URL, CELERY_RESULT_BACKEND
+from .log import configure_logs, log_timed_block
 
 
 logger = logging.getLogger(__name__)
@@ -58,36 +66,50 @@ celery_app.conf.update(
     },
 )
 
+@setup_logging.connect
+def on_setup_logging(**kwargs):
+    configure_logs()
 
 @worker_process_init.connect
 def warm_up_worker(**kwargs):
-    logger.info("[@worker_process_init] starting worker initialization...")
-
-    # try:
-    #     logger.info("Configuring logs...")
-    #     from shared.log import configure_logs
-    #     configure_logs()
-    #     logger.info("Logs configured successfully.")
-    # except Exception as e:
-    #     logger.exception(f"Failed to configure logs {e}")
-    #     raise
-
-    try:
-        logger.info("Configuring runtime...")
+    with log_timed_block("configure runtime", logger=logger):
         from worker.runtime import configure_runtime
         configure_runtime()
-        logger.info("Runtime configured successfully.")
-    except Exception as e:
-        logger.exception(f"Failed to configure runtime {e}")
-        raise
 
-    try:
-        logger.info("Configuring torch...")
+    with log_timed_block("configure torch", logger=logger):
         from worker.torch_utils.bootstrap import configure_torch
         configure_torch()
-        logger.info("Torch configured successfully.")
-    except Exception as e:
-        logger.exception(f"Failed to configure torch {e}")
-        raise
 
-    logger.info("[@worker_process_init] Worker initialization completed.")
+@worker_ready.connect
+def on_worker_ready(sender=None, **kwargs):
+    logger.info("worker ready", extra={"hostname": sender})
+
+@task_prerun.connect
+def on_task_prerun(task_id=None, task=None, args=None, kwargs=None, **extra):
+    logger.info(
+        "task start | task=%s task_id=%s",
+        getattr(task, "name", None),
+        task_id,
+        extra={"task_id": task_id, "task_name": getattr(task, "name", None)},
+    )
+
+@task_postrun.connect
+def on_task_postrun(task_id=None, task=None, state=None, retval=None, **extra):
+    logger.info(
+        "task end | task=%s task_id=%s state=%s",
+        getattr(task, "name", None),
+        task_id,
+        state,
+        extra={"task_id": task_id, "task_name": getattr(task, "name", None)},
+    )
+
+@task_failure.connect
+def on_task_failure(task_id=None, exception=None, args=None, kwargs=None, einfo=None, sender=None, **extra):
+    logger.error(
+        "task failed | task=%s task_id=%s error=%s",
+        getattr(sender, "name", None),
+        task_id,
+        exception,
+        extra={"task_id": task_id, "task_name": getattr(sender, "name", None)},
+        exc_info=einfo.exc_info if einfo else None,
+    )

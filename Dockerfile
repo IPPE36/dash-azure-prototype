@@ -1,7 +1,10 @@
 # syntax=docker/dockerfile:1.7
 
+############################
+# Wheel builder
+############################
 FROM python:3.11-slim AS builder
-WORKDIR /app
+WORKDIR /build
 
 ENV PIP_CACHE_DIR=/root/.cache/pip \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
@@ -20,9 +23,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN --mount=type=cache,target=/root/.cache/pip \
     pip install --upgrade pip setuptools wheel
 
-COPY requirements/ /tmp/requirements/
+# Copy requirement files individually so changing one does not invalidate all
+COPY requirements/base.txt /tmp/requirements/base.txt
+COPY requirements/web.txt /tmp/requirements/web.txt
+COPY requirements/ml.txt /tmp/requirements/ml.txt
+COPY requirements/test.txt /tmp/requirements/test.txt
 
-# Build all local/offline wheels up front.
+# Build offline wheelhouse for normal dependencies
 RUN --mount=type=cache,target=/root/.cache/pip \
     mkdir -p /wheels && \
     pip wheel --wheel-dir /wheels -r /tmp/requirements/base.txt && \
@@ -30,8 +37,7 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     pip wheel --wheel-dir /wheels -r /tmp/requirements/ml.txt && \
     pip wheel --wheel-dir /wheels -r /tmp/requirements/test.txt
 
-# Build a reusable torch wheelhouse separately so the worker stage
-# does not need to hit the network during its own install step.
+# Build torch separately so worker dependency caching is more stable
 RUN --mount=type=cache,target=/root/.cache/pip \
     mkdir -p /torch-wheels && \
     pip wheel \
@@ -39,7 +45,11 @@ RUN --mount=type=cache,target=/root/.cache/pip \
       --index-url https://download.pytorch.org/whl/cpu \
       torch
 
-FROM python:3.11-slim AS base
+
+############################
+# Runtime OS + shared deps only
+############################
+FROM python:3.11-slim AS runtime-base
 WORKDIR /app
 
 ENV PYTHONPATH=/app/src \
@@ -64,57 +74,90 @@ RUN addgroup --system app && \
 
 COPY --from=builder /wheels /wheels
 COPY --from=builder /torch-wheels /torch-wheels
-COPY requirements/ /tmp/requirements/
 
-# Install the stable shared base dependencies first.
+# Copy requirement files individually for better cache granularity
+COPY requirements/base.txt /tmp/requirements/base.txt
+COPY requirements/web.txt /tmp/requirements/web.txt
+COPY requirements/ml.txt /tmp/requirements/ml.txt
+COPY requirements/test.txt /tmp/requirements/test.txt
+
+# Install only the shared base dependencies here
 RUN --mount=type=cache,target=/home/app/.cache/pip \
     pip install --no-index --find-links=/wheels -r /tmp/requirements/base.txt
 
-# Copy code after dependency installation for better layer reuse.
-COPY alembic.ini /app/alembic.ini
-COPY alembic/ /app/alembic/
-COPY src/ /app/src/
 
-RUN chown -R app:app /app /home/app && \
-    chmod +x /app/src/worker/entrypoint.sh /app/src/web/entrypoint.sh
+############################
+# App source layer
+############################
+FROM runtime-base AS app-base
 
-################
-# Web image    
-################
-FROM base AS web
+# Copy app code only here, after dependency layers
+COPY --chown=app:app alembic.ini /app/alembic.ini
+COPY --chown=app:app alembic/ /app/alembic/
+COPY --chown=app:app src/ /app/src/
+
+RUN chmod +x /app/src/worker/entrypoint.sh /app/src/web/entrypoint.sh
+
+
+############################
+# Web dependency layer
+############################
+FROM runtime-base AS web-deps
 RUN --mount=type=cache,target=/home/app/.cache/pip \
     pip install --no-index --find-links=/wheels -r /tmp/requirements/web.txt
+
+
+############################
+# ML dependency layer
+############################
+FROM runtime-base AS worker-deps
+RUN --mount=type=cache,target=/home/app/.cache/pip \
+    pip install --no-index --find-links=/torch-wheels torch
+
+RUN --mount=type=cache,target=/home/app/.cache/pip \
+    pip install --no-index --find-links=/wheels -r /tmp/requirements/ml.txt
+
+
+############################
+# Test dependency layer
+############################
+FROM runtime-base AS test-deps
+RUN --mount=type=cache,target=/home/app/.cache/pip \
+    pip install --no-index --find-links=/wheels -r /tmp/requirements/test.txt
+
+
+############################
+# Web image
+############################
+FROM web-deps AS web
+
+COPY --from=app-base /app /app
+
 USER app
 EXPOSE 8050
 ENTRYPOINT ["/app/src/web/entrypoint.sh"]
 CMD ["gunicorn", "-b", "0.0.0.0:8050", "web.app:server", "--workers", "2", "--threads", "4"]
 
-################
-# Torch layer  
-################
-# Separate stage so the expensive torch install is cached independently
-# from app code and model artifact copies.
-FROM base AS worker-deps
-RUN --mount=type=cache,target=/home/app/.cache/pip \
-    pip install --no-index --find-links=/torch-wheels torch
-RUN --mount=type=cache,target=/home/app/.cache/pip \
-    pip install --no-index --find-links=/wheels -r /tmp/requirements/ml.txt
 
-################
-# Worker image 
-################
+############################
+# Worker image
+############################
 FROM worker-deps AS worker
-# Put frequently changing artifacts as late as possible so they do not
-# invalidate dependency installation layers.
-COPY ml/models/artifacts/ /app/ml/models/artifacts/
-RUN chown -R app:app /app/ml /home/app
+
+COPY --from=app-base /app /app
+
+# Keep frequently changing model artifacts late
+COPY --chown=app:app ml/models/artifacts/ /app/ml/models/artifacts/
+
 USER app
 ENTRYPOINT ["/app/src/worker/entrypoint.sh"]
 
-################
-# Test image   
-################
-FROM base AS test
-RUN --mount=type=cache,target=/home/app/.cache/pip \
-    pip install --no-index --find-links=/wheels -r /tmp/requirements/test.txt
+
+############################
+# Test image
+############################
+FROM test-deps AS test
+
+COPY --from=app-base /app /app
+
 USER app
