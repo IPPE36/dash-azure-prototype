@@ -24,7 +24,8 @@ services:
       context: .
       target: worker
     entrypoint: []
-    command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "default", "--concurrency=1", "-n", "default@%h"]
+    command:
+      ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "default", "--concurrency=1", "-n", "default@%h"]
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
@@ -42,7 +43,8 @@ services:
       context: .
       target: worker
     entrypoint: []
-    command: ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "background", "--concurrency=1", "-n", "long@%h"]
+    command:
+      ["celery", "-A", "shared.celery_app:celery_app", "worker", "--loglevel=INFO", "-Q", "background", "--concurrency=1", "-n", "long@%h"]
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
@@ -103,7 +105,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
-  desktop-pytest:
+  test:
     build:
       context: .
       target: test
@@ -111,7 +113,6 @@ services:
     env_file:
       - ${APP_ENV_FILE:-.env}
     environment:
-      - TEST_START_DELAY=${TEST_START_DELAY:-5}
       - DATABASE_URL=${DATABASE_URL}
       - RUN_CELERY_TESTS=${RUN_CELERY_TESTS:-true}
       - RUN_REDIS_TESTS=${RUN_REDIS_TESTS:-true}
@@ -121,8 +122,18 @@ services:
       - ./backups:/app/db_backups
       - ./dev_users.json:/app/dev_users.json:ro
       - ./tests:/app/tests
-    command: ["sh", "-c", "sleep ${TEST_START_DELAY:-5} && pytest -q"]
-      
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    profiles: ["test"]
+    command:
+      [
+        "sh",
+        "-c",
+        "until pg_isready -h postgres -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-appdb}; do sleep 1; done; pytest -q"
+      ]
 
 volumes:
   postgres_data:

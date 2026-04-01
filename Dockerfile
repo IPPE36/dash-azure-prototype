@@ -149,3 +149,4 @@ ENTRYPOINT ["/app/src/worker/entrypoint.sh"]
 FROM test-deps AS test
 COPY --from=app-base /app /app
 USER app
+CMD ["pytest", "-q"]
