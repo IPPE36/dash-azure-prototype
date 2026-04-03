@@ -24,6 +24,7 @@
 .delete-btn::before {content: "\f1f8";}
 .add-btn::before {content: "\f067";}
 .logout-btn::before {content: "\f2f5";}
+.nav-btn::before {content: "\f0c9"; margin-right: 0rem;}
 .user-initials-btn::before {content: "\f007";}
 .bounds-btn::before {content: "\f1de";}
 .target-btn::before {content: "\f140";}

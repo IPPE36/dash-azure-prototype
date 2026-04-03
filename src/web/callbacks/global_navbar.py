@@ -11,7 +11,6 @@ def register_callbacks_navbar() -> None:
         """function() {return false;}""",
         Output("navbar-user-popover", "is_open"),
         Trigger("nav-offcanvas", "is_open"),
-        Trigger("jobs-settings-offcanvas", "is_open"),
     )
         
     @callback(

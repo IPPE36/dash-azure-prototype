@@ -1,0 +1,61 @@
+.carousel .carousel-control-prev,
+.carousel .carousel-control-next {
+  opacity: 0.9;
+  width: 3.5rem;
+}
+
+.carousel .carousel-control-prev-icon,
+.carousel .carousel-control-next-icon {
+  background-color: rgba(0, 0, 0, 0.45);
+  background-size: 55% 55%;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+}
+
+.carousel.carousel-dark .carousel-control-prev-icon,
+.carousel.carousel-dark .carousel-control-next-icon {
+  background-color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(0, 0, 0, 0.6);
+}
+
+.carousel .carousel-control-prev:hover,
+.carousel .carousel-control-next:hover {
+  opacity: 1;
+}
+
+.carousel .carousel-control-prev:hover .carousel-control-prev-icon,
+.carousel .carousel-control-next:hover .carousel-control-next-icon {
+  filter: invert(1) grayscale(1);
+}
+
+.carousel .carousel-indicators {
+  z-index: 5;
+  pointer-events: auto;
+}
+
+.carousel .carousel-inner {
+  z-index: 1;
+}
+
+.carousel .carousel-indicators [data-bs-target] {
+  width: 32px;
+  height: 4px;
+  margin: 0 4px;
+  padding: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.75);
+  background-color: rgba(0, 0, 0, 0.45);
+}
+
+.carousel .carousel-indicators .active {
+  background-color: rgba(0, 0, 0, 0.9);
+}
+
+.carousel.carousel-dark .carousel-indicators [data-bs-target] {
+  border-color: rgba(0, 0, 0, 0.6);
+  background-color: rgba(255, 255, 255, 0.7);
+}
+
+.carousel.carousel-dark .carousel-indicators .active {
+  background-color: rgba(255, 255, 255, 0.95);
+}

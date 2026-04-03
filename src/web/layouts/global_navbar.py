@@ -11,16 +11,17 @@ def build_global_navbar():
         dbc.Container(
             [   
                 dbc.Button(
-                    dbc.NavbarBrand(
-                        [
-                            html.I(className=ICON_NAV),
-                            html.Span(APP_NAME, className="fw-semibold ms-2"),
-                        ],
-                        className="text-white d-flex align-items-center",
-                    ),
+                    " ",
                     id="open-nav-offcanvas",
-                    className="btn btn-link p-2 border-0 text-decoration-none",
-                    style={"cursor": "pointer"},
+                    color="primary",
+                    size="md",
+                    className="nav-btn me-1",
+                ),
+                dbc.NavbarBrand(
+                    [
+                        html.Span(APP_NAME, className="fw-semibold ms-2"),
+                    ],
+                    className="text-white d-flex align-items-center",
                 ),
                 html.Span("/", className="mx-1 text-white-50 d-none d-md-inline"),
                 html.Span(
@@ -34,7 +35,7 @@ def build_global_navbar():
                             id="navbar-user-btn",
                             color="primary",
                             size="md",
-                            className="user-initials-btn border border-white me-1",
+                            className="user-initials-btn me-1",
                         ),
                         dbc.Popover(
                             [
