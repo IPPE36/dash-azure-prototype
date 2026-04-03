@@ -134,7 +134,11 @@ def build_layout_jobs():
         },
     )
 
-    history_alert = html.Div([dbc.Alert("This is a primary alert", color="primary")])
+    history_alert = html.Div(
+        [dbc.Alert("Empty user history, add a new optimization to continue!", color="primary")],
+        id="jobs-history-alert",
+        hidden=True,
+    )
 
     search_bar = dbc.InputGroup(
         [
@@ -258,12 +262,12 @@ def build_layout_jobs():
                 type="text",
                 maxLength=32,
                 placeholder="Apply Tag (optional)",
-                size="sm",
+                size="md",
             ),
             dbc.Button(
                 "",
                 id="jobs-tag-btn",
-                size="sm",
+                size="md",
                 color="secondary",
                 className="tag-btn",
                 disabled=True,
@@ -275,35 +279,40 @@ def build_layout_jobs():
 
     actions_row = html.Div(
         [
-            dbc.Button(
-                "",
-                id="jobs-refresh-btn",
-                size="sm",
-                color="secondary",
-                disabled=False,
-                className="refresh-btn",
-                style={"display": "none"}
+            html.Div(
+                [
+                    dbc.Button(
+                        "",
+                        id="jobs-refresh-btn",
+                        size="md",
+                        color="secondary",
+                        disabled=False,
+                        className="refresh-btn",
+                        style={"display": "none"}
+                    ),
+                    dbc.Button(
+                        "Results",
+                        id="jobs-result-btn",
+                        size="md",
+                        color="secondary",
+                        disabled=True,
+                        className="load-btn",
+                    ),
+                    dbc.Button(
+                        "Delete",
+                        id="jobs-delete-btn",
+                        size="md",
+                        color="secondary",
+                        disabled=True,
+                        className="delete-btn",
+                    ),
+                    tag_input
+                ],
+                className="d-flex gap-2",
             ),
-            dbc.Button(
-                "Results",
-                id="jobs-result-btn",
-                size="sm",
-                color="secondary",
-                disabled=True,
-                className="load-btn",
-            ),
-            dbc.Button(
-                "Delete",
-                id="jobs-delete-btn",
-                size="sm",
-                color="secondary",
-                disabled=True,
-                className="delete-btn",
-            ),
-            tag_input,
         ],
-        className="gap-2 my-3",
         id="jobs-actions-group",
+        hidden=True,
     )
 
     history_body = html.Div(

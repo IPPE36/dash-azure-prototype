@@ -92,15 +92,32 @@ def register_callbacks_jobs():
         """
         function(rows) {
             const hasRows = Array.isArray(rows) && rows.length > 0;
-            return [
-                {display: hasRows ? "block" : "none"},
-                {display: hasRows ? "flex" : "none"},
-            ];
+            return {display: hasRows ? "block" : "none"};
         }
         """,
         Output("jobs-search-group", "style"),
-        Output("jobs-actions-group", "style"),
         Input("jobs-table", "data"),
+    )
+
+    clientside_callback(
+        """
+        function(rows) {
+            const hasRows = Array.isArray(rows) && rows.length > 0;
+            return hasRows;
+        }
+        """,
+        Output("jobs-history-alert", "hidden"),
+        Input("jobs-table", "data"),
+    )
+
+    clientside_callback(
+        """
+        function(selected_rows) {
+            return !(selected_rows && selected_rows.length > 0);
+        }
+        """,
+        Output("jobs-actions-group", "hidden"),
+        Input("jobs-table", "selected_rows"),
     )
 
     clientside_callback(
