@@ -11,7 +11,7 @@ def build_layout_home():
         "position": "absolute",
         "inset": "0",
         "backgroundColor": "var(--bs-dark)",
-        "opacity": "0.75",
+        "opacity": "0.5",
         "pointerEvents": "none",
         "zIndex": "0",
     }
@@ -115,7 +115,7 @@ def build_layout_home():
             "caption": None,
             "href": "/jobs",
             "content": video_block(
-                "https://samplelib.com/lib/preview/mp4/sample-5s.mp4",
+                "https://www.pexels.com/download/video/5488780/",
                 "fa-solid fa-briefcase",
                 "Jobs Hub",
                 "Launch and monitor background runs in one place. Track progress, review logs, "
@@ -128,9 +128,9 @@ def build_layout_home():
             "key": "predictions",
             "header": None,
             "caption": None,
-            "href": "/predictions",
+            "href": "/pred",
             "content": video_block(
-                "https://samplelib.com/lib/preview/mp4/sample-10s.mp4",
+                "https://www.pexels.com/download/video/6468636/",
                 "fa-solid fa-chart-line",
                 "Model Insights",
                 "Explore predictions with confidence. Compare targets, inspect uncertainty, "

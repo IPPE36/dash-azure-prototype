@@ -17,6 +17,11 @@ from .trainers import (
     GPRTrainer,
     GPCTrainer,
 )
+from .outliers import (
+    build_outliers_dataframe,
+    picp_outlier_mask,
+    save_outliers_csv,
+)
 
 __all__ = [
     "plot_pca_cumulative_variance",
@@ -30,4 +35,7 @@ __all__ = [
     "MLPTrainer",
     "GPRTrainer",
     "GPCTrainer",
+    "build_outliers_dataframe",
+    "picp_outlier_mask",
+    "save_outliers_csv",
 ]

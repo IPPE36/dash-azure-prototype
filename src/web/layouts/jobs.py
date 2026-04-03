@@ -70,18 +70,21 @@ def build_layout_jobs():
     settings_tabs = dbc.Tabs(
         [
             dbc.Tab(
+                id="jobs-settings-tab-bounds-label",
                 label="Boundaries",
                 tab_id="jobs-settings-tab-bounds",
                 children=[sliders],
                 label_class_name="bounds-btn",
             ),
             dbc.Tab(
+                id="jobs-settings-tab-objectives-label",
                 label="Objectives",
                 tab_id="jobs-settings-tab-objectives",
                 children=[inputs],
                 label_class_name="target-btn",
             ),
             dbc.Tab(
+                id="jobs-settings-tab-submit-label",
                 label="Submit",
                 tab_id="jobs-settings-tab-submit",
                 children=[submit],
@@ -266,6 +269,7 @@ def build_layout_jobs():
                 disabled=True,
             ),
         ],
+        className="jobs-tag-input",
         style={"minWidth": "220px", "maxWidth": "320px"},
     )
 

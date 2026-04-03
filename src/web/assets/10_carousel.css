@@ -37,6 +37,20 @@
   z-index: 1;
 }
 
+.carousel .carousel-caption {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+@media (max-width: 576px) {
+  .carousel .carousel-caption {
+    left: 4%;
+    right: 4%;
+    width: 92%;
+    max-width: none;
+  }
+}
+
 .carousel .carousel-indicators [data-bs-target] {
   width: 32px;
   height: 4px;

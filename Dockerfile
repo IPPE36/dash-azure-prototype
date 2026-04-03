@@ -146,6 +146,7 @@ ENTRYPOINT ["/app/src/worker/entrypoint.sh"]
 ############################
 # Test image
 ############################
+# run unit tests via: "docker compose --profile test run --rm test"
 FROM test-deps AS test
 COPY --from=app-base /app /app
 USER app

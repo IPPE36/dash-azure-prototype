@@ -3,7 +3,7 @@
 import dash_bootstrap_components as dbc
 from dash_extensions.enrich import html
 
-from web.theme import ICON_APP, ICON_NAV
+from web.theme import ICON_NAV
 from web.config import APP_NAME
 
 def build_global_navbar():
@@ -19,6 +19,11 @@ def build_global_navbar():
                 ),
                 dbc.NavbarBrand(
                     [
+                        html.Img(
+                            src="/assets/logo.svg",
+                            alt="Logo",
+                            style={"height": "28px", "width": "28px"},
+                        ),
                         html.Span(APP_NAME, className="fw-semibold ms-2"),
                     ],
                     className="text-white d-flex align-items-center",

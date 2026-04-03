@@ -41,6 +41,22 @@ def register_callbacks_jobs():
         prevent_initial_call=False,
     )
 
+    clientside_callback(
+        """
+        function(widthBreakpoint) {
+            if (widthBreakpoint === "tablet" || widthBreakpoint === "mobile") {
+                return ["Bnd.", "Obj.", "Sub."];
+            }
+            return ["Boundaries", "Objectives", "Submit"];
+        }
+        """,
+        Output("jobs-settings-tab-bounds-label", "label"),
+        Output("jobs-settings-tab-objectives-label", "label"),
+        Output("jobs-settings-tab-submit-label", "label"),
+        Input("breakpoints", "widthBreakpoint"),
+        prevent_initial_call=False,
+    )
+
 
     clientside_callback(
         """
