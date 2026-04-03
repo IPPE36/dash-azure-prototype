@@ -3,7 +3,9 @@ import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from collections import defaultdict
 
+import numpy as np
 import torch
 
 from .io_utils import ArtifactIO
@@ -51,13 +53,11 @@ class ModelRepository:
             raise ValueError("served_artifacts must contain at least one artifact name")
 
         self._loaded: dict[str, Any] = {}
+        self._targets_lookup: dict[str, list[str]] = self._build_targets_lookup()
+        self.bounds: dict[str, tuple[float, float]] = {}
 
-        logger.info(
-            "Initialized ModelRepository | root=%s | served=%s | device=%s",
-            self.root,
-            sorted(self.served_artifacts),
-            self.device,
-        )
+        for a in sorted(served_artifacts):
+            logger.info("Served artifact %s | device=%s", a, self.device)
 
     def _iter_artifact_dirs(self):
         if not self.root.exists():
@@ -147,6 +147,7 @@ class ModelRepository:
             raise
 
         self._loaded[name] = model
+        self._update_bounds_from_model(model)
         logger.info("Model loaded and cached: %s", name)
 
         return model
@@ -190,3 +191,119 @@ class ModelRepository:
 
         logger.debug("Generated description for %d models", len(rows))
         return rows
+    
+    def _as_numpy(self, value: Any) -> np.ndarray | None:
+        if value is None:
+            return None
+        if torch.is_tensor(value):
+            return value.detach().cpu().numpy()
+        return np.asarray(value)
+
+    def _inverse_scale_x(self, x: np.ndarray | None, prep) -> np.ndarray | None:
+        if x is None:
+            return None
+        scaler = getattr(prep, "scaler_x", None) if prep is not None else None
+        if scaler is None:
+            return x
+        try:
+            return scaler.inverse_transform(x)
+        except Exception:
+            logger.exception("Failed to inverse-transform train_x for bounds.")
+            return x
+
+    def _inverse_scale_y(self, y: np.ndarray | None, prep) -> np.ndarray | None:
+        if y is None:
+            return None
+        scaler = getattr(prep, "scaler_y", None) if prep is not None else None
+        if scaler is None:
+            return y
+        try:
+            if y.ndim == 1:
+                y = y.reshape(-1, 1)
+            return scaler.inverse_transform(y)
+        except Exception:
+            logger.exception("Failed to inverse-transform train_y for bounds.")
+            return y
+
+    def _compute_bounds(
+        self,
+        names: list[str],
+        data: np.ndarray | None,
+    ) -> dict[str, tuple[float, float]]:
+        if data is None:
+            return {}
+        if data.ndim == 1:
+            data = data.reshape(-1, 1)
+
+        bounds: dict[str, tuple[float, float]] = {}
+        n_cols = data.shape[1]
+
+        for idx, name in enumerate(names[:n_cols]):
+            col = data[:, idx]
+            if np.all(np.isnan(col)):
+                continue
+            bounds[name] = (float(np.nanmin(col)), float(np.nanmax(col)))
+
+        return bounds
+
+    def _merge_repo_bounds(self, bounds: dict[str, tuple[float, float]]) -> None:
+        for key, (low, high) in bounds.items():
+            if key in self.bounds:
+                cur_low, cur_high = self.bounds[key]
+                self.bounds[key] = (min(cur_low, low), max(cur_high, high))
+            else:
+                self.bounds[key] = (low, high)
+
+    def _update_bounds_from_model(self, model: Any) -> None:
+        aux = getattr(model, "aux", None)
+        prep = getattr(model, "prep", None)
+        spec = getattr(model, "spec", None)
+        if spec is None:
+            return
+
+        train_x = getattr(aux, "train_x", None) if aux is not None else None
+        train_y = getattr(aux, "train_y", None) if aux is not None else None
+        if train_x is None:
+            train_x = getattr(model, "train_x", None)
+        if train_y is None:
+            train_y = getattr(model, "train_y", None)
+
+        if train_x is None and train_y is None:
+            return
+
+        x_np = self._as_numpy(train_x)
+        y_np = self._as_numpy(train_y)
+
+        x_np = self._inverse_scale_x(x_np, prep)
+        y_np = self._inverse_scale_y(y_np, prep)
+
+        if y_np is not None and y_np.ndim == 1:
+            y_np = y_np.reshape(-1, 1)
+
+        bounds = {}
+        bounds.update(self._compute_bounds(spec.features, x_np))
+        bounds.update(self._compute_bounds(spec.targets, y_np))
+
+        if bounds:
+            self._merge_repo_bounds(bounds)
+            if aux is not None:
+                aux.bounds = bounds
+
+    def _build_targets_lookup(self) -> dict[str, list[str]]:
+        lookup: dict[str, list[str]] = defaultdict(list)
+
+        for record in self.list_records():
+            for target in record.targets:
+                lookup[target].append(record.name)
+
+        return dict(lookup)
+    
+    def find_by_targets(self, targets: set[str] | list[str]) -> list[str]:
+        matches: list[str] = []
+        seen: set[str] = set()
+        for target in targets:
+            for name in self._targets_lookup.get(target, []):
+                if name not in seen:
+                    seen.add(name)
+                    matches.append(name)
+        return matches

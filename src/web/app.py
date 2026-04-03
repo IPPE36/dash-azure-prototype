@@ -32,11 +32,18 @@ from .config import (
     AUTH_MODE,
 )
 
+_bootstrap_js = (
+    dbc.themes.BOOTSTRAP
+    .replace("bootstrap.min.css", "bootstrap.bundle.min.js")
+    .replace("/css/", "/js/")
+)
+
 app = DashProxy(
     name=__name__,
     title=f"{APP_NAME}-{APP_VERSION}",
     update_title=f"{APP_NAME}-{APP_VERSION}",
     external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME],
+    external_scripts=[_bootstrap_js],
     transforms=[TriggerTransform(), MultiplexerTransform()],
     use_pages=True,
     prevent_initial_callbacks=True,
@@ -47,6 +54,7 @@ app = DashProxy(
 server = app.server
 server.secret_key = SECRET
 
+# propagate flask logger to app logger
 configure_logs()
 for name in ("flask.app", "werkzeug"):
     logger = logging.getLogger(name)

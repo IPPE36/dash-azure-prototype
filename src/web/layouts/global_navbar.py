@@ -13,7 +13,7 @@ def build_global_navbar():
                 dbc.Button(
                     dbc.NavbarBrand(
                         [
-                            html.I(className=ICON_APP),
+                            html.I(className=ICON_NAV),
                             html.Span(APP_NAME, className="fw-semibold ms-2"),
                         ],
                         className="text-white d-flex align-items-center",
@@ -34,25 +34,25 @@ def build_global_navbar():
                             id="navbar-user-btn",
                             color="primary",
                             size="md",
-                            className="user-initials-btn border border-white",
+                            className="user-initials-btn border border-white me-1",
                         ),
                         dbc.Popover(
                             [
-                                dbc.PopoverBody(
+                                dbc.PopoverHeader(
                                     [
                                         html.Div(
-                                            [
-                                                html.Div(
-                                                    id="navbar-user-name",
-                                                    className="fw-semibold",
-                                                ),
-                                                html.Div(
-                                                    id="navbar-user-email",
-                                                    className="small text-muted",
-                                                ),
-                                            ],
-                                            className="mb-2",
+                                            id="navbar-user-name",
+                                            className="fw-semibold",
                                         ),
+                                        html.Div(
+                                            id="navbar-user-email",
+                                            className="small text-muted",
+                                        ),
+                                    ],
+                                    className="mb-2",
+                                ),
+                                dbc.PopoverBody(
+                                    [
                                         dbc.Switch(
                                             id="navbar-expert-switch",
                                             label="Expert",
@@ -84,7 +84,8 @@ def build_global_navbar():
             className="py-2 navbar-inner",
         ),
         color="primary",
-        className="app-navbar border-bottom fixed-top px-3",
+        className="app-navbar fixed-top border-bottom border-primary border-3",
+        id="navbar",
     )
     return navbar
 
@@ -102,6 +103,18 @@ def build_global_nav_offcanvas():
             href="/jobs",
             active="exact",
             id={"type": "nav-offcanvas-link", "page": "jobs"},
+        ),
+        dbc.NavLink(
+            "Pred",
+            href="/pred",
+            active="exact",
+            id={"type": "nav-offcanvas-link", "page": "pred"},
+        ),
+        dbc.NavLink(
+            "Team",
+            href="/team",
+            active="exact",
+            id={"type": "nav-offcanvas-link", "page": "team"},
         ),
     ]
 

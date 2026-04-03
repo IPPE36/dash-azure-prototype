@@ -1,8 +1,11 @@
 
 /* horizontal padding for main content area and navbar */
-.app-content,
+
+.app-content {
+    padding-inline: 0rem;
+}
 .navbar-inner {
-    padding-inline: 0;
+    padding-inline: 2.5rem;
 }
 
 @media (min-width: 768px) {

@@ -3,3 +3,4 @@ pandas
 scikit-learn
 gpytorch
 joblib
+platypus-opt==1.0.4

@@ -36,6 +36,12 @@ class JsonFormatter(logging.Formatter):
 
 
 def configure_logs() -> None:
+    """
+    One-time log configuration. This function is called in:
+    - shared/db/bootstrapping.py
+    - shared/celery_app.py
+    - web/app.py
+    """
     global _CONFIGURED
     if _CONFIGURED:
         return

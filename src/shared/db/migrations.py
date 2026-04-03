@@ -15,13 +15,12 @@ from alembic import command
 from alembic.config import Config
 from sqlalchemy import text
 from shared.db.core import engine
-from shared.log import configure_logs
 
 
 logger = logging.getLogger(__name__)
 
 
-def run_migrations_if_leader() -> None:
+def run_migrations() -> None:
     if engine is None:
         logger.info("DATABASE_URL not set; skipping alembic migrations")
         return
@@ -58,8 +57,9 @@ def run_migrations_if_leader() -> None:
 
 
 def main() -> None:
+    from shared.log import configure_logs
     configure_logs()
-    run_migrations_if_leader()
+    run_migrations()
 
 
 if __name__ == "__main__":

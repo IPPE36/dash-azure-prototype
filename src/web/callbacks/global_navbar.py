@@ -1,11 +1,18 @@
 # src/web/callbacks/navbar.py
 
-from dash_extensions.enrich import callback, clientside_callback, Input, Output, State, page_registry, ALL
+from dash_extensions.enrich import callback, clientside_callback, Input, Output, State, Trigger, page_registry, ALL
 
 from web.auth import get_user_name, get_user_email, get_initials
 
 
 def register_callbacks_navbar() -> None:
+
+    clientside_callback(
+        """function() {return false;}""",
+        Output("navbar-user-popover", "is_open"),
+        Trigger("nav-offcanvas", "is_open"),
+        Trigger("jobs-settings-offcanvas", "is_open"),
+    )
         
     @callback(
         Output("navbar-user-btn", "children"),

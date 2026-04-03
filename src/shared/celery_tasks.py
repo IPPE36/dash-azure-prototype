@@ -25,7 +25,7 @@ def long_task(self, x: int, *, task_id: int) -> None:
     try:
         from worker.runtime import configure_runtime
         runtime = configure_runtime()
-        result = runtime.predict(x)
+        result = runtime.predict(x, targets="x1")
 
         progress = 0
         while progress < 100:

@@ -31,6 +31,20 @@
 .tag-btn::before {content: "\f02b"; margin-right: 0rem;}
 .search-btn::before {content: "\f002"; margin-right: 0rem;}
 .refresh-btn::before {content: "\f021"; margin-right: 0rem;}
+.home-jobs-btn::before {content: "\f0b1";}
+.home-pred-btn::before {content: "\f201";}
+
+.home-action-group {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.75rem;
+}
+
+.home-action-btn {
+    flex: 1 1 220px;
+    max-width: 260px;
+}
 
 .btn-outline-secondary {
     background-color: lightgrey !important;

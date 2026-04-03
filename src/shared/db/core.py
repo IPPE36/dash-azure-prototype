@@ -225,6 +225,8 @@ def _load_devusers_json() -> list[DevUser]:
 
 
 def configure_db() -> None:
+    """One-time postgre configuration.
+    This function is called in web entrypoint.sh"""
     global _CONFIGURED
     if _CONFIGURED:
         return

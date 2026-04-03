@@ -36,8 +36,8 @@ class _GPR(gpytorch.models.ExactGP):
             num_tasks=num_tasks,
             rank=covar_rank,
         )
-        # Optional: regularize linear mean a bit for standardized data
-        # Uncomment if you want the mean to stay conservative on small datasets:
+        # Optional: regularize linear mean for standardized data
+        # to stay conservative on small datasets.
         self.mean_module.base_means[0].register_prior(
             "weights_prior",
             NormalPrior(0.0, 0.5),
@@ -60,7 +60,6 @@ class _GPRL(gpytorch.models.ExactGP):
     def __init__(self, train_x, train_y, likelihood, num_tasks: int, *, covar_rank: int = 1):
         super().__init__(train_x, train_y, likelihood)
         d = train_x.shape[-1]
-        device = train_x.device
         self.mean_module = gpytorch.means.MultitaskMean(
             gpytorch.means.LinearMean(input_size=d, bias=True),
             num_tasks=num_tasks,
@@ -75,7 +74,7 @@ class _GPRL(gpytorch.models.ExactGP):
             rank=covar_rank,
         )
         # Optional: regularize linear mean for standardized data
-        # Uncomment if you want a more conservative mean on small datasets.
+        # to stay conservative on small datasets.
         self.mean_module.base_means[0].register_prior(
             "weights_prior",
             NormalPrior(0.0, 0.5),

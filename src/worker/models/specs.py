@@ -4,7 +4,7 @@ from typing import Any
 import torch
 
 
-@dataclass
+@dataclass(frozen=True)
 class ModelConfig:
     """Metadata needed to rebuild a model instance."""
     model_type: str
@@ -22,7 +22,7 @@ class ModelConfig:
         return len(self.targets)
 
 
-@dataclass
+@dataclass(frozen=True)
 class PreprocessConfig:
     """Container for preprocessors used before/after inference.
     Store sklearn-compatible transformers or similar objects.
@@ -35,9 +35,11 @@ class PreprocessConfig:
     scaler_y_list: list[Any] = None
 
 
-@dataclass
+@dataclass(frozen=False)
 class AuxilaryData:
     """Optional extra data tied to a model instance."""
+    train_ids: list = None
     train_x: torch.Tensor = None
     train_y: torch.Tensor = None
+    bounds: dict[str, tuple] = None
     extra: dict[str, Any] = None

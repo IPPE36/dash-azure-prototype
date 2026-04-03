@@ -6,7 +6,7 @@ from dash_extensions.enrich import html, dcc, dash_table
 
 from web.theme import ICON_SETTINGS
 from web.plot_utils import DEFAULT_CONFIG
-from web.layouts.settings import build_sliders, build_input_list, build_dropdown
+from web.layouts.settings import build_sliders, build_input_list
 
 
 COLUMNS = [
