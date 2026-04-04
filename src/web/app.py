@@ -32,23 +32,17 @@ from .config import (
     AUTH_MODE,
 )
 
-_bootstrap_js = (
-    dbc.themes.BOOTSTRAP
-    .replace("bootstrap.min.css", "bootstrap.bundle.min.js")
-    .replace("/css/", "/js/")
-)
-
+custom_theme = "/assets/bootstrap.min.css"
 app = DashProxy(
     name=__name__,
     title=f"{APP_NAME}-{APP_VERSION}",
     update_title=f"{APP_NAME}-{APP_VERSION}",
-    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME],
-    external_scripts=[_bootstrap_js],
+    external_stylesheets=[dbc.themes.BOOTSTRAP, dbc.icons.FONT_AWESOME, custom_theme],
     transforms=[TriggerTransform(), MultiplexerTransform()],
     use_pages=True,
     prevent_initial_callbacks=True,
     suppress_callback_exceptions=True,
-    assets_ignore=r".*\.map$|.*\.txt$|.*\.md$",
+    assets_ignore=r".*\.map$|.*\.txt$|.*\.md$|bootstrap\.min\.css$",
 )
 
 server = app.server

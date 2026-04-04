@@ -55,7 +55,8 @@ def build_global_navbar():
                                             className="small text-muted",
                                         ),
                                     ],
-                                    className="mb-2",
+                                    className="mb-2 bg-white",
+                                    style={"width": "250px"}
                                 ),
                                 dbc.PopoverBody(
                                     [
@@ -63,7 +64,7 @@ def build_global_navbar():
                                             id="navbar-expert-switch",
                                             label="Expert",
                                             value=False,
-                                            className="mb-2",
+                                            className="mb-2 mx-3",
                                         ),
                                         dbc.Button(
                                             "Logout",
@@ -139,5 +140,5 @@ def build_global_nav_offcanvas():
         ],
         is_open=False,
         placement="start",
-        className="bg-light ps-2 py-1"
+        className="bg-light ps-1 pe-0 pt-0 pb-0",
     )

@@ -20,12 +20,12 @@
 }
 
 .app-tabs .nav-link:hover {
-  color: var(--bs-primary);
+  color: var(--bs-secondary);
 }
 
 .app-tabs .nav-link.active {
-  color: var(--bs-primary);
-  border-bottom: 3px solid var(--bs-primary);
+  color: var(--bs-secondary);
+  border-bottom: 3px solid var(--bs-secondary);
   background-color: transparent;
 }
 
@@ -34,3 +34,9 @@
     margin-right: 0.5rem;
     font-weight: 900;
 }
+
+.history-tab::before {content: "\f1da";}
+.results-tab::before {content: "\f080";}
+.bounds-tab::before {content: "\f1de";}
+.target-tab::before {content: "\f140";}
+.send-tab::before {content: "\f1d8";}

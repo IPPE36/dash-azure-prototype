@@ -57,12 +57,14 @@ def build_layout_jobs():
                 type="text",
                 maxLength=50,
                 placeholder="New Job Name",
+                style=dict(zIndex=2),
             ),
             dbc.Button(
                 "Submit",
                 id="jobs-submit-btn",
-                color="secondary",
+                color="primary",
                 className="submit-btn",
+                style=dict(zIndex=1),
             ),
         ],
     )
@@ -74,21 +76,21 @@ def build_layout_jobs():
                 label="Boundaries",
                 tab_id="jobs-settings-tab-bounds",
                 children=[sliders],
-                label_class_name="bounds-btn",
+                label_class_name="bounds-tab",
             ),
             dbc.Tab(
                 id="jobs-settings-tab-objectives-label",
                 label="Objectives",
                 tab_id="jobs-settings-tab-objectives",
                 children=[inputs],
-                label_class_name="target-btn",
+                label_class_name="target-tab",
             ),
             dbc.Tab(
                 id="jobs-settings-tab-submit-label",
                 label="Submit",
                 tab_id="jobs-settings-tab-submit",
                 children=[submit],
-                label_class_name="send-btn",
+                label_class_name="send-tab",
             ),
         ],
         id="jobs-settings-tabs",
@@ -107,7 +109,7 @@ def build_layout_jobs():
         title=offcanvas_title,
         is_open=False,
         placement="start",
-        className="bg-light ps-2 py-1",
+        className="bg-light ps-1 pe-0 pt-0 pb-0",
         style={"minWidth": "50%"}
     )
 
@@ -123,7 +125,7 @@ def build_layout_jobs():
         dbc.Spinner(
             id="jobs-spinner",
             size="md",
-            color="primary",
+            color="info",
         ),
         id="jobs-spinner-wrap",
         style={
@@ -147,12 +149,14 @@ def build_layout_jobs():
                 type="text",
                 maxLength=50,
                 placeholder="Search for Task...",
+                style=dict(zIndex=2),
             ),
             dbc.Button(
                 "",
                 id="jobs-search-btn",
-                color="secondary",
+                color="light",
                 className="search-btn",
+                style=dict(zIndex=1),
             ),
         ],
         style={"minWidth": "220px", "maxWidth": "320px"},
@@ -163,7 +167,7 @@ def build_layout_jobs():
             dbc.Button(
                 "New Task",
                 id="jobs-add-btn",
-                color="secondary",
+                color="light",
                 disabled=False,
                 className="add-btn",
                 style={"whiteSpace": "nowrap", "widht": "auto"}
@@ -180,7 +184,7 @@ def build_layout_jobs():
                 id="jobs-progress",
                 value=0,
                 max=100,
-                color="primary",
+                color="info",
                 className="flex-grow-1 me-3",
             ),
             html.Div(
@@ -248,7 +252,7 @@ def build_layout_jobs():
                     "filter_query": '{status} = "RUNNING"',
                     "column_id": "status_icon",
                 },
-                "color": "var(--bs-primary)",
+                "color": "var(--bs-info)",
             },
         ],
     )
@@ -263,14 +267,16 @@ def build_layout_jobs():
                 maxLength=32,
                 placeholder="Apply Tag (optional)",
                 size="md",
+                style=dict(zIndex=2),
             ),
             dbc.Button(
                 "",
                 id="jobs-tag-btn",
                 size="md",
-                color="secondary",
+                color="light",
                 className="tag-btn",
                 disabled=True,
+                style=dict(zIndex=1),
             ),
         ],
         className="jobs-tag-input",
@@ -285,7 +291,7 @@ def build_layout_jobs():
                         "",
                         id="jobs-refresh-btn",
                         size="md",
-                        color="secondary",
+                        color="light",
                         disabled=False,
                         className="refresh-btn",
                         style={"display": "none"}
@@ -294,7 +300,7 @@ def build_layout_jobs():
                         "Results",
                         id="jobs-result-btn",
                         size="md",
-                        color="secondary",
+                        color="light",
                         disabled=True,
                         className="load-btn",
                     ),
@@ -302,7 +308,7 @@ def build_layout_jobs():
                         "Delete",
                         id="jobs-delete-btn",
                         size="md",
-                        color="secondary",
+                        color="light",
                         disabled=True,
                         className="delete-btn",
                     ),
@@ -346,19 +352,19 @@ def build_layout_jobs():
             dbc.Tab(
                 label="History",
                 tab_id="jobs-tab-history",
-                label_class_name="history-btn",
+                label_class_name="history-tab",
                 children=[history_body],
             ),
             dbc.Tab(
                 label="Results",
                 tab_id="jobs-tab-results",
-                label_class_name="results-btn",
+                label_class_name="results-tab",
                 children=[results_body],
             ),
         ],
         id="jobs-tabs",
         active_tab="jobs-tab-history",
-        className="app-tabs mb-4",
+        className="app-tabs ms-0 mb-4",
     )
 
     new_task_section = html.Div(

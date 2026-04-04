@@ -1,6 +1,11 @@
 import dash_bootstrap_components as dbc
 from dash import html
 
+from web.config import (
+    APP_NAME,
+    APP_VERSION
+)
+
 
 def build_layout_home():
     cards = [
@@ -60,7 +65,7 @@ def build_layout_home():
                         html.Div(
                             [
                                 html.Div(
-                                    "GENEC",
+                                    f"{APP_NAME} {APP_VERSION}",
                                     className="display-4 fw-bold text-uppercase mb-2",
                                 ),
                                 html.Div(

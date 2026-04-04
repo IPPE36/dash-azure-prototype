@@ -1,5 +1,4 @@
 /* remove focus and add icons to specific buttons*/
-
 .btn {
     z-index: 1;
 }
@@ -10,30 +9,29 @@
 .btn:active {
     transform: translateY(-1);
 }
-.btn::before {
+.btn::after {
     font-family: "Font Awesome 6 Free";
-    margin-right: 0.5rem;
+    margin-left: 0.5rem;
     font-weight: 900;
 }
-
-.submit-btn::before {content: "\f061";}
-.settings-btn::before {content: "\f013";}
-.history-btn::before {content: "\f1da";}
-.results-btn::before {content: "\f080";}
-.load-btn::before {content: "\f07c";}
-.delete-btn::before {content: "\f1f8";}
-.add-btn::before {content: "\f067";}
-.logout-btn::before {content: "\f2f5";}
-.nav-btn::before {content: "\f0c9"; margin-right: 0rem;}
-.user-initials-btn::before {content: "\f007";}
-.bounds-btn::before {content: "\f1de";}
-.target-btn::before {content: "\f140";}
-.send-btn::before {content: "\f1d8";}
-.tag-btn::before {content: "\f02b"; margin-right: 0rem;}
-.search-btn::before {content: "\f002"; margin-right: 0rem;}
-.refresh-btn::before {content: "\f021"; margin-right: 0rem;}
-.home-jobs-btn::before {content: "\f0b1";}
-.home-pred-btn::before {content: "\f201";}
+.submit-btn::after {content: "\f061";}
+.settings-btn::after {content: "\f013";}
+.history-btn::after {content: "\f1da";}
+.results-btn::after {content: "\f080";}
+.load-btn::after {content: "\f07c";}
+.delete-btn::after {content: "\f1f8";}
+.add-btn::after {content: "\f067";}
+.logout-btn::after {content: "\f2f5";}
+.nav-btn::after {content: "\f0c9"; margin-left: 0rem;}
+.user-initials-btn::after {content: "\f007";}
+.bounds-btn::after {content: "\f1de";}
+.target-btn::after {content: "\f140";}
+.send-btn::after {content: "\f1d8";}
+.tag-btn::after {content: "\f02b"; margin-left: 0rem;}
+.search-btn::after {content: "\f002"; margin-left: 0rem;}
+.refresh-btn::after {content: "\f021"; margin-left: 0rem;}
+.home-jobs-btn::after {content: "\f0b1";}
+.home-pred-btn::after {content: "\f201";}
 
 .home-action-group {
     display: flex;
@@ -47,13 +45,13 @@
     max-width: 260px;
 }
 
-.btn-outline-secondary {
-    background-color: lightgrey !important;
+.btn-outline-primary {
+    background-color: white !important;
 }
-.btn-outline-secondary:hover,
-.btn-outline-secondary:focus,
-.btn-outline-secondary:active {
-    background-color: lightgrey !important;
+.btn-outline-primary:hover,
+.btn-outline-primary:focus,
+.btn-outline-primary:active {
+    background-color: white !important;
     box-shadow: none !important;
-    color: var(--bs-secondary);
+    color: var(--bs-primary);
 }

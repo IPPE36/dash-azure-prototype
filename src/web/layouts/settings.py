@@ -213,7 +213,7 @@ def build_sliders(*, row_list=None):
                                 dbc.Button(
                                     label,
                                     id={"type": "slider_toggle", "index": slider_index},
-                                    color="secondary",
+                                    color="primary",
                                     outline=bool(disabled),
                                     size="sm",
                                     className="w-100 m-0 slider-toggle-btn",

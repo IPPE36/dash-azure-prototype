@@ -9,15 +9,23 @@
 }
 
 @media (min-width: 768px) {
-    .app-content,
-    .navbar-inner {
+    .app-content {
         padding-inline: 5rem;
+    }
+}
+@media (min-width: 768px) {
+    .navbar-inner {
+        padding-inline: 6.25rem;
     }
 }
 
 @media (min-width: 1200px) {
-    .app-content,
-    .navbar-inner {
+    .app-content{
         padding-inline: 10rem;
+    }
+}
+@media (min-width: 1200px) {
+    .navbar-inner {
+        padding-inline: 11.25rem;
     }
 }

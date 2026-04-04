@@ -1,3 +1,8 @@
 :root {
     --navbar-height: 75px;
+    --bs-primary: #000040;
+    --bs-secondary: #FF6100;
+    --bs-success: #2A9D8F;
+    --bs-info: #3A68BF;
+    --bs-danger: #FF0000;
 }
