@@ -354,3 +354,101 @@ def plot_scaler_hist(
             plt.show()
         plt.close()
     return 
+
+
+def plot_pareto_front(
+    y1,
+    y2,
+    *,
+    gen_indices: list[int] | set[int] | None = None,
+    target_x: float | None = None,
+    target_y: float | None = None,
+    ax: plt.Axes = None,
+    title: str = "Pareto Front",
+    show: bool = True,
+    filepath: str = None,
+):
+    """
+    Plot Pareto front traces for selected generations.
+
+    Parameters
+    ----------
+    y1, y2:
+        Either list-like of per-generation arrays, or 2D arrays shaped
+        (n_generations, n_points). If 1D, treated as a single generation.
+    gen_indices:
+        Optional generation indices to display. Defaults to 3 evenly spaced
+        indices (e.g. 0, mid, last).
+    target_x, target_y:
+        Optional target values to display as crosshair.
+    """
+    def _is_list_like(obj):
+        return isinstance(obj, (list, tuple))
+
+    if _is_list_like(y1) and _is_list_like(y2):
+        # List-like per-generation data (possibly ragged)
+        y1_gens = [np.asarray(v, dtype=float) for v in y1]
+        y2_gens = [np.asarray(v, dtype=float) for v in y2]
+    else:
+        y1 = np.asarray(y1, dtype=float)
+        y2 = np.asarray(y2, dtype=float)
+
+        if y1.ndim == 1 and y2.ndim == 1:
+            y1_gens = [y1]
+            y2_gens = [y2]
+        elif y1.ndim == 2 and y2.ndim == 2:
+            if y1.shape[0] != y2.shape[0]:
+                raise ValueError("y1 and y2 must have the same number of generations.")
+            y1_gens = [y1[i] for i in range(y1.shape[0])]
+            y2_gens = [y2[i] for i in range(y2.shape[0])]
+        else:
+            raise ValueError("y1 and y2 must be 1D, 2D, or list-like per generation.")
+
+    n_gens = len(y1_gens)
+    if n_gens != len(y2_gens):
+        raise ValueError("y1 and y2 must have the same number of generations.")
+    if n_gens == 0:
+        raise ValueError("No generation data provided.")
+
+    if gen_indices is None:
+        idx = np.linspace(0, n_gens - 1, 3, dtype=int)
+        gen_indices = sorted(set(idx.tolist()))
+    else:
+        gen_indices = sorted({int(i) for i in gen_indices if 0 <= int(i) < n_gens})
+        if not gen_indices:
+            raise ValueError("gen_indices resolved to empty after bounds check.")
+
+    if ax is None:
+        fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+    else:
+        fig = ax.figure
+
+    for gen in gen_indices:
+        ax.scatter(
+            y1_gens[gen],
+            y2_gens[gen],
+            s=18,
+            alpha=0.7,
+            label=f"Gen {gen}",
+        )
+
+    if target_x is not None:
+        ax.axvline(target_x, color="black", linestyle="--", linewidth=1.0, alpha=0.6)
+    if target_y is not None:
+        ax.axhline(target_y, color="black", linestyle="--", linewidth=1.0, alpha=0.6)
+    if target_x is not None and target_y is not None:
+        ax.scatter([target_x], [target_y], marker="x", s=60, color="black", zorder=5)
+
+    ax.grid(True, alpha=0.3, linewidth=0.6)
+    ax.set_xlabel("y1")
+    ax.set_ylabel("y2")
+    ax.set_title(title)
+    ax.legend(frameon=False)
+
+    plt.tight_layout()
+    if filepath is not None:
+        fig.savefig(filepath, bbox_inches="tight")
+    if show:
+        plt.show()
+    plt.close()
+    return

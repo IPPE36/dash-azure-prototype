@@ -11,6 +11,7 @@ from platypus.operators import PCX, SBX, PMX
 
 from worker.models.repo import ModelRepository
 from worker.opt.utils import cdist, pdist
+from worker.opt.compositions import CompositionalConfig, prepare_compositional_inputs
 
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,7 @@ class OptimizationResult:
     x: dict[str, float]
     objectives: dict[str, float]
     loss: float
+    losses: dict[str, float]
 
 
 class BatchProblem(Problem):
@@ -51,8 +53,9 @@ class BatchProblem(Problem):
 class BatchNSGAII(NSGAII):
     def evaluate_all(self, solutions):
         """Bypass evaluator and use batch evaluation."""
+        pending = [s for s in solutions if not s.evaluated]
         self.problem.evaluate_all(solutions)
-        self.nfe += len(solutions)
+        self.nfe += len(pending)
 
 
 class ModelInversionAlgorithm:
@@ -89,8 +92,11 @@ class ModelInversionAlgorithm:
         bounds: dict[str, tuple[float, float]] | None = None,
         fixed: dict[str, float] | None = None,
         fit_features: list[str] | None = None,
-        runs: int = 200,
-        population: int = 50,
+        runs: int | None = None,
+        population: int | None = None,
+        compositional: bool = False,
+        compositional_groups: dict[str, str] | None = None,
+        compositional_config: CompositionalConfig | None = None,
         seed: int = 1,
         crossover: str = "SBX",
         device: str = "cpu",
@@ -101,12 +107,18 @@ class ModelInversionAlgorithm:
         self.bounds = bounds or dict(repo.bounds)
         self.fixed = fixed or {}
         self.fit_features = fit_features
-        self.runs = runs
-        self.population = population
-        self.generations = max(1, runs // population)
+        self.runs, self.population = self._resolve_budget(
+            runs=runs,
+            population=population,
+            n_targets=len(self.objectives),
+        )
+        self.generations = max(1, self.runs // self.population)
         self.device = device
 
         self._rng = np.random.default_rng(seed)
+        self.compositional = compositional
+        self.compositional_groups = compositional_groups or {}
+        self.compositional_config = compositional_config
 
         self.objective_keys = list(self.objectives.keys())
         self.objective_vals = [self.objectives[k] for k in self.objective_keys]
@@ -115,12 +127,16 @@ class ModelInversionAlgorithm:
         self.models = self._load_models(self._target_models.values())
         self.features = self._resolve_features()
         self.targets = list(self.objective_keys)
+        self._model_target_index = self._build_model_target_index()
+        self._objectives_by_model = self._build_objectives_by_model()
 
         self.fit_features = self._resolve_fit_features(self.fit_features)
         self._feature_index = {name: idx for idx, name in enumerate(self.features)}
+        self._fit_indices = [self._feature_index[name] for name in self.fit_features]
 
         self._min_, self._max_ = self._resolve_feature_bounds(self.fit_features)
         self._default = self._resolve_default_values()
+        self._template_x = self._build_template_x()
 
         self._target_bounds = self._resolve_target_bounds()
         self._needs_std = any(
@@ -140,10 +156,52 @@ class ModelInversionAlgorithm:
         self._results: list[OptimizationResult] = []
 
         self.variator = {
-            "SBX": SBX(distribution_index=20),
+            "SBX": SBX(),
             "PCX": PCX(),
             "PMX": PMX(),
-        }.get(crossover, SBX(distribution_index=20))
+        }.get(crossover, SBX())
+
+    def _build_model_target_index(self) -> dict[str, dict[str, int]]:
+        index: dict[str, dict[str, int]] = {}
+        for model_name, model in self.models.items():
+            model_targets = list(model.spec.targets)
+            index[model_name] = {name: idx for idx, name in enumerate(model_targets)}
+        return index
+
+    def _build_objectives_by_model(self) -> dict[str, list[tuple[int, str]]]:
+        grouped: dict[str, list[tuple[int, str]]] = {}
+        for key_idx, target in enumerate(self.objective_keys):
+            model_name = self._target_models[target]
+            grouped.setdefault(model_name, []).append((key_idx, target))
+        return grouped
+
+    @staticmethod
+    def _resolve_budget(
+        *,
+        runs: int | None,
+        population: int | None,
+        n_targets: int,
+    ) -> tuple[int, int]:
+        if runs is not None and population is not None:
+            return runs, population
+
+        n_targets = max(1, int(n_targets))
+
+        # Heuristic: more targets -> larger population and more generations.
+        # Keep population moderate; increase runs primarily via generations.
+        base_pop = 30
+        pop = base_pop + 10 * (n_targets - 1)
+        pop = int(min(max(pop, 30), 120))
+
+        gens = 4 + 2 * n_targets
+        gens = int(min(max(gens, 4), 20))
+
+        if population is None:
+            population = pop
+        if runs is None:
+            runs = int(population * gens)
+
+        return runs, population
 
     def _resolve_fit_features(self, fit_features: list[str] | None) -> list[str]:
         if fit_features is None:
@@ -209,6 +267,16 @@ class ModelInversionAlgorithm:
                 continue
             defaults[name] = 0.0
         return defaults
+
+    def _build_template_x(self) -> np.ndarray:
+        template = np.zeros(len(self.features), dtype=float)
+        for name in self.features:
+            idx = self._feature_index[name]
+            if name in self.fit_features:
+                template[idx] = 0.0
+            else:
+                template[idx] = float(self._default[name])
+        return template
 
     def _resolve_target_bounds(self) -> dict[str, tuple[float, float]]:
         bounds = {}
@@ -284,18 +352,23 @@ class ModelInversionAlgorithm:
         if self.optimization is None:
             self.initialize()
         self.step += 1
-        self.optimization.run(self.population)
+        self.optimization.step()
         if self.step == 1 or not self.step % 5 or self.step >= self.generations:
             self._update_results(gen=self.step)
-        if hasattr(self.variator, "distribution_index"):
-            if self.step >= int(self.generations / 2):
-                self.variator.distribution_index = 15
-            if self.step >= 3 * int(self.generations / 4):
-                self.variator.distribution_index = 10
 
     def run(self) -> list[OptimizationResult]:
         for _ in range(self.generations):
             self.step_once()
+        return list(self._results)
+
+    def run_steps(self, steps: int) -> list[OptimizationResult]:
+        if steps < 0:
+            raise ValueError("steps must be non-negative")
+        for _ in range(steps):
+            self.step_once()
+        return list(self._results)
+
+    def get_results(self) -> list[OptimizationResult]:
         return list(self._results)
 
     def _update_results(self, gen: int = 0) -> None:
@@ -304,24 +377,29 @@ class ModelInversionAlgorithm:
         merged: list[OptimizationResult] = []
         for i, l in enumerate(losses):
             x = outputs[i]["x"]
-            obj = {k: v for k, v in zip(self.objective_keys, l)}
-            loss = math.sqrt(sum(v ** 2 for v in obj.values()))
-            merged.append(OptimizationResult(x=x, objectives=obj, loss=loss))
+            pred = outputs[i]["pred"]
+            loss_vec = {k: v for k, v in zip(self.objective_keys, l)}
+            loss = math.sqrt(sum(v ** 2 for v in loss_vec.values()))
+            merged.append(
+                OptimizationResult(
+                    x=x,
+                    objectives=pred,
+                    loss=loss,
+                    losses=loss_vec,
+                )
+            )
         merged.sort(key=lambda r: r.loss)
         self._results = merged
 
     def _build_full_x(self, x_fit: Iterable[float]) -> np.ndarray:
-        x_fit = list(x_fit)
-        full = []
-        fit_idx = {name: i for i, name in enumerate(self.fit_features)}
-        for name in self.features:
-            if name in fit_idx:
-                full.append(float(x_fit[fit_idx[name]]))
-            else:
-                full.append(float(self._default[name]))
-        return np.asarray(full, dtype=float)
+        x_fit = np.asarray(list(x_fit), dtype=float)
+        full = self._template_x.copy()
+        full[self._fit_indices] = x_fit
+        return full
 
     def _predict_batch(self, x: np.ndarray) -> tuple[np.ndarray, np.ndarray | None]:
+        if self.compositional:
+            x = self._prepare_compositional_inputs(x)
         mean = np.full((x.shape[0], len(self.objective_keys)), np.nan, dtype=float)
         std = (
             np.full((x.shape[0], len(self.objective_keys)), np.nan, dtype=float)
@@ -330,6 +408,9 @@ class ModelInversionAlgorithm:
         )
 
         for model_name, model in self.models.items():
+            mapped_targets = self._objectives_by_model.get(model_name)
+            if not mapped_targets:
+                continue
             pred = model.predict(
                 x,
                 device=self.device,
@@ -344,14 +425,12 @@ class ModelInversionAlgorithm:
 
             mean_np = self._to_numpy(mean_pred)
             std_np = self._to_numpy(std_pred) if std_pred is not None else None
-            model_targets = list(model.spec.targets)
+            target_index = self._model_target_index.get(model_name, {})
 
-            for key_idx, target in enumerate(self.objective_keys):
-                if self._target_models[target] != model_name:
+            for key_idx, target in mapped_targets:
+                target_idx = target_index.get(target)
+                if target_idx is None:
                     continue
-                if target not in model_targets:
-                    continue
-                target_idx = model_targets.index(target)
                 mean[:, key_idx] = mean_np[:, target_idx]
                 if std is not None:
                     if std_np is not None:
@@ -360,6 +439,20 @@ class ModelInversionAlgorithm:
                         std[:, key_idx] = 0.0
 
         return mean, std
+
+    def _prepare_compositional_inputs(self, x_full: np.ndarray) -> np.ndarray:
+        if not self.compositional:
+            return x_full
+        if not self.compositional_groups:
+            raise ValueError("compositional_groups must be provided when compositional=True")
+        config = self.compositional_config or CompositionalConfig(groups=self.compositional_groups)
+        return prepare_compositional_inputs(
+            x_full,
+            features=self.features,
+            bounds=self.bounds,
+            config=config,
+            rng=self._rng,
+        )
 
     def _to_numpy(self, value: Any) -> np.ndarray:
         if value is None:
