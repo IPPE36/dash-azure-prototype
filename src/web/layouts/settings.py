@@ -262,6 +262,54 @@ def build_sliders(*, row_list=None):
 
     return dbc.Row(
         items,
-        className="g-2 mt-1",
+        className="g-2 my-1 mx-1",
         justify="start",
+    )
+
+
+def objective_selection_row(
+    objective: str,
+    input_type: str = "text",
+    dropdown_width: int = 6,
+    input_width: int = 6,
+) -> dbc.Row:
+    return dbc.Row(
+        [
+            dbc.Col(
+                dcc.Dropdown(
+                    id={"index": f"jobs-dd-{objective}", "type": f"jobs-dd-{objective}"},
+                    options=[
+                        "target",
+                        "greater than",
+                        "smaller than",
+                        "maximize",
+                        "minimize",
+                        "maximize uncertainty",
+                        "minimize uncertainty",
+                        "maximize distance",
+                        "minimize distance",
+                    ],
+                    value="target",
+                    clearable=False,
+                    style={"width": "100%"},
+                ),
+                width=dropdown_width,
+            ),
+            dbc.Col(
+                dbc.Input(
+                    id={"index": f"jobs-input-{objective}", "type": f"jobs-input-{objective}"},
+                    type=input_type,
+                    value=0,
+                    style={"width": "100%"},
+                ),
+                width=input_width,
+            ),
+        ],
+        className=f"g-2 align-items-center",
+        justify="between",
+        style={
+            "display": "flex",
+            "width": "100%",
+            "maxWidth": "800px",
+        },
     )

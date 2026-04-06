@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import logging
 import math
 from dataclasses import dataclass
@@ -23,6 +21,17 @@ class OptimizationResult:
     objectives: dict[str, float]
     loss: float
     losses: dict[str, float]
+    stds: dict[str, float]
+
+    def to_dict(self, *, targets: dict[str, float]) -> dict[str, float]:
+        row: dict[str, float] = {}
+        row["loss"] = float(self.loss)
+        row.update({f"x_{k}": float(v) for k, v in self.x.items()})
+        row.update({f"y_{k}": float(v) for k, v in targets.items()})
+        row.update({f"yhat_{k}": float(v) for k, v in self.objectives.items()})
+        row.update({f"loss_{k}": float(v) for k, v in self.losses.items()})
+        row.update({f"std_{k}": float(v) for k, v in self.stds.items()})
+        return row
 
 
 class BatchProblem(Problem):
@@ -70,7 +79,7 @@ class ModelInversionAlgorithm:
     strategies:
         Optional dict of target_name -> strategy string.
         Supported:
-        - "minimize difference" (default)
+        - "target" (default)
         - "greater than"
         - "smaller than"
         - "maximize uncertainty"
@@ -359,17 +368,18 @@ class ModelInversionAlgorithm:
     def run(self) -> list[OptimizationResult]:
         for _ in range(self.generations):
             self.step_once()
-        return list(self._results)
+        return self.get_results()
 
     def run_steps(self, steps: int) -> list[OptimizationResult]:
         if steps < 0:
             raise ValueError("steps must be non-negative")
         for _ in range(steps):
             self.step_once()
-        return list(self._results)
+        return self.get_results()
 
-    def get_results(self) -> list[OptimizationResult]:
-        return list(self._results)
+    def get_results(self) -> list[dict[str, float]]:
+        targets = {k: float(v) for k, v in zip(self.objective_keys, self.objective_vals)}
+        return [r.to_dict(targets=targets) for r in self._results]
 
     def _update_results(self, gen: int = 0) -> None:
         results = nondominated(self.optimization.result)
@@ -378,6 +388,7 @@ class ModelInversionAlgorithm:
         for i, l in enumerate(losses):
             x = outputs[i]["x"]
             pred = outputs[i]["pred"]
+            stds = outputs[i].get("std") or {}
             loss_vec = {k: v for k, v in zip(self.objective_keys, l)}
             loss = math.sqrt(sum(v ** 2 for v in loss_vec.values()))
             merged.append(
@@ -386,6 +397,7 @@ class ModelInversionAlgorithm:
                     objectives=pred,
                     loss=loss,
                     losses=loss_vec,
+                    stds=stds,
                 )
             )
         merged.sort(key=lambda r: r.loss)
@@ -516,7 +528,7 @@ class ModelInversionAlgorithm:
         losses: list[float] = []
         for key, target in zip(self.objective_keys, self.objective_vals):
             pred = output["pred"].get(key)
-            strat = self.strategies.get(key, "minimize difference").lower()
+            strat = self.strategies.get(key, "target").lower()
             lo, hi = self._target_bounds.get(key, (0.0, 1.0))
             denom = (hi - lo) if hi != lo else 1.0
             base = ((target - pred) / denom) ** 2

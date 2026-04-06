@@ -1,6 +1,9 @@
 # src/web/callbacks/jobs.py
 
 import uuid
+import pickle
+import logging
+from pathlib import Path
 
 from dash_extensions.enrich import Input, State, Output, Trigger, no_update, callback, clientside_callback, MATCH
 from dash.exceptions import PreventUpdate
@@ -9,9 +12,12 @@ from shared.db import get_user_id, add_task, get_queue_position, get_user_task_c
 from shared.celery_tasks import long_task, short_task
 from web.auth import get_user_name
 from web.callbacks import toast_payload
-from web.plot_utils import scatter3d_figure
+from web.plot_utils import scatter_figure, bar_figure
 from web.config import MAX_USER_TASKS_ACTIVE, MAX_USER_TASKS_TOTAL
 from web.theme import CIRCLE_TAG
+
+
+logger = logging.getLogger(__name__)
 
 
 def register_callbacks_jobs():
@@ -22,7 +28,7 @@ def register_callbacks_jobs():
         Output("jobs-settings-tabs", "active_tab"),
         Input("jobs-add-btn", "n_clicks"),
     )
-
+    
 
     clientside_callback(
         """
@@ -32,7 +38,7 @@ def register_callbacks_jobs():
             } else if (widthBreakpoint === "tablet") {
                 return ["task_id", "status", "version"];
             } else {
-                return ["task_id", "status"];
+                return ["task_id", "version"];
             }
         }
         """,
@@ -101,13 +107,45 @@ def register_callbacks_jobs():
 
     clientside_callback(
         """
-        function(rows) {
+        function(rows, selected_rows) {
             const hasRows = Array.isArray(rows) && rows.length > 0;
-            return hasRows;
+            const hasSelection = Array.isArray(selected_rows) && selected_rows.length > 0;
+
+            if (!hasRows) {
+                return [
+                    false,
+                    [{
+                        namespace: "dash_bootstrap_components",
+                        type: "Alert",
+                        props: {
+                            children: "Empty user history, add a new optimization to continue!",
+                            color: "primary"
+                        }
+                    }]
+                ];
+            }
+
+            if (!hasSelection) {
+                return [
+                    false,
+                    [{
+                        namespace: "dash_bootstrap_components",
+                        type: "Alert",
+                        props: {
+                            children: "Please select an exisiting row to examine results or add a new optimization!",
+                            color: "primary"
+                        }
+                    }]
+                ];
+            }
+
+            return [true, window.dash_clientside.no_update];
         }
         """,
         Output("jobs-history-alert", "hidden"),
+        Output("jobs-history-alert", "children"),
         Input("jobs-table", "data"),
+        Input("jobs-table", "selected_rows"),
     )
 
     clientside_callback(
@@ -155,36 +193,81 @@ def register_callbacks_jobs():
 
 
     @callback(
-        Output("jobs-results-graph", "figure"),
+        Output("jobs-results-pareto-graph", "figure"),
+        Output("jobs-results-detail-graph", "figure"),
         Output("jobs-tabs", "active_tab"),
         Trigger("jobs-result-btn", "n_clicks"),
         State("jobs-table", "selected_rows"),
         State("jobs-table", "data"),
     )
     def cb_jobs_results(selected_rows, data):
-        if not selected_rows:
-            raise PreventUpdate
-        if not data:
-            raise PreventUpdate
-
-        task_id = data[selected_rows[0]].get("task_id")
-        if task_id is None:
+        logger.info("jobs results callback fired. selected_rows=%s", selected_rows)
+        if not selected_rows or not data:
+            logger.warning("jobs results callback: missing selection or data")
             raise PreventUpdate
 
-        task = get_task(task_id, include_payloads=True)
-        if not task:
-            raise PreventUpdate
+        try:
+            src_root = Path(__file__).resolve().parents[2]
+            pareto_path = src_root / "opt_pareto_results.pkl"
+            targets_path = src_root / "opt_target_values.pkl"
+            logger.info("Loading pareto from %s", pareto_path)
+            logger.info("Loading targets from %s", targets_path)
 
-        payload = task.get("output_payload") or []
-        if not isinstance(payload, list):
-            raise PreventUpdate
+            if not pareto_path.exists() or not targets_path.exists():
+                logger.error("Missing example files. pareto_exists=%s targets_exists=%s",
+                             pareto_path.exists(), targets_path.exists())
+                raise PreventUpdate
 
-        x_vals = [row.get("x") for row in payload if isinstance(row, dict)]
-        y_vals = [row.get("y") for row in payload if isinstance(row, dict)]
-        z_vals = [row.get("z") for row in payload if isinstance(row, dict)]
+            with open(pareto_path, "rb") as f:
+                pareto_results = pickle.load(f)
+            with open(targets_path, "rb") as f:
+                objectives = pickle.load(f)
 
-        figure = scatter3d_figure(x_vals, y_vals, z_vals, height=320)
-        return figure, "jobs-tab-results"
+            logger.info("Loaded pareto_results=%s objectives_keys=%s",
+                        len(pareto_results) if pareto_results else 0,
+                        list(objectives.keys()) if isinstance(objectives, dict) else None)
+
+            if not pareto_results or not objectives:
+                logger.warning("No pareto results or objectives loaded")
+                raise PreventUpdate
+        except PreventUpdate:
+            raise
+        except Exception:
+            logger.exception("Failed to load example optimization data")
+            raise
+
+        target_keys = list(objectives.keys())
+        x_key = target_keys[0]
+        y_key = target_keys[1] if len(target_keys) > 1 else target_keys[0]
+
+        pareto_x = [r.get(f"pred_{x_key}") for r in pareto_results]
+        pareto_y = [r.get(f"pred_{y_key}") for r in pareto_results]
+        pareto_fig = scatter_figure(
+            pareto_x,
+            pareto_y,
+            title=f"Pareto Front ({x_key} vs {y_key})",
+            height=320,
+        )
+
+        best = pareto_results[0]
+        pred_vals = [best.get(f"pred_{k}") for k in target_keys]
+        target_vals = [objectives.get(k) for k in target_keys]
+
+        detail_fig = bar_figure(
+            target_keys,
+            pred_vals,
+            title="Selected Individual (Predicted vs Target)",
+            height=320,
+        )
+        detail_fig.add_scatter(
+            x=target_keys,
+            y=target_vals,
+            mode="markers",
+            name="Target",
+            marker={"color": "var(--bs-secondary)", "size": 6},
+        )
+
+        return pareto_fig, detail_fig, "jobs-tab-results"
 
 
     @callback(

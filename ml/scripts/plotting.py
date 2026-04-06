@@ -429,7 +429,7 @@ def plot_pareto_front(
             y2_gens[gen],
             s=18,
             alpha=0.7,
-            label=f"Gen {gen}",
+            label=f"Gen {gen+1}",
         )
 
     if target_x is not None:

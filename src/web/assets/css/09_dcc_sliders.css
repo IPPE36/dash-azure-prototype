@@ -25,6 +25,8 @@
 }
 .rc-slider-tooltip,
 .rc-slider-tooltip-inner {
+    border-radius: var(--bs-border-radius-sm);
+    background-color: var(--bs-dark);
     user-select: none;
     -webkit-user-select: none;
     -ms-user-select: none;

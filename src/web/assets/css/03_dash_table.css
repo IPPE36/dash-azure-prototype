@@ -9,7 +9,7 @@ button.previous-page,
 button.next-page,
 button.first-page,
 button.last-page {
-    color: white;
+    color: dark;
     background-color: var(--bs-light);
     border: 1px solid var(--bs-light);
     border-radius: var(--bs-border-radius);
@@ -21,7 +21,7 @@ button.first-page:disabled,
 button.last-page:disabled {
     background-color: var(--bs-light);
     border-color: var(--bs-light);
-    color: white;
+    color: dark;
     opacity: 0.65;
     cursor: not-allowed;
     pointer-events: none;

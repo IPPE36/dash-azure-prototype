@@ -1,3 +1,4 @@
+python -m ml.scripts.fit_all
 https://bootstrap.build/app
 docker compose up --build  (run locally)
 docker compose --profile test run --rm test  (run unit tests)

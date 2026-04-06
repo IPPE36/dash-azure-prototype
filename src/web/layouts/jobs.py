@@ -11,43 +11,47 @@ from web.layouts.settings import build_sliders, build_input_list
 
 COLUMNS = [
     {"name": "ID", "id": "task_id", "editable": False},
-    {"name": "STATUS", "id": "status_icon", "editable": False},
-    {"name": "STATUS", "id": "status", "editable": False},
+    {"name": "", "id": "status_icon", "editable": False},
+    {"name": "", "id": "status", "editable": False},
     {"name": "LABEL", "id": "task_name", "editable": True},
     {"name": "TAG", "id": "tag", "editable": False},
     {"name": "DATE", "id": "created_at", "editable": False},
-    {"name": "VERSION", "id": "version", "editable": False},
 ]
+
+# inputs = build_input_list(
+#     row_list=[
+#         # (level, label, avg, stddev, use_std, disabled, limit_min, limit_max, use_switch)
+#         ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
+#     ]
+# )
 
 
 def build_layout_jobs():
 
-    inputs = build_input_list(
-        row_list=[
-            ("main", "Cost1", 80.0, None, False, False, 0, 1000, True),
-            ("main", "Cost2", 80.0, None, False, False, 0, 1000, True),
-            ("main", "Cost3", 80.0, None, False, False, 0, 1000, True),
-            ("main", "Cost4", 80.0, None, False, False, 0, 1000, True),
-            ("main", "Cost5", 80.0, None, False, False, 0, 1000, True),
-        ]
-    )
-    # dd = build_dropdown(options=["Steel", "Concrete", "Timber", "Aluminum"])
-
     sliders = build_sliders(
         row_list=[
-            ("Strength", 25, 0, 100, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Pressure", 40, 10, 80, False),
-            ("Locked value", 15, 0, 50, False),
+            # (label, value, min_value, max_value, disabled)
+            ("X1", 0, 0, 100, False),
+            ("X2", 0, 0, 100, False),
+            ("X3", 0, 0, 100, False),
+            ("X4", 0, 0, 100, False),
+            ("X5", 0, 0, 100, False),
+            ("X6", 0, 0, 100, False),
+            ("X7", 0, 0, 100, False),
+            ("X8", 0, 0, 100, False),
+            ("X9", 0, 0, 100, False),
         ]
+    )
+    
+    objectives = html.Div([], id="jobs-obj-wrapper")
+    objective_selector = dcc.Dropdown(
+        id='jobs-obj-selector',
+        multi=True,
+        clearable=True,
+        placeholder='Select Properties',
+        options=[],  # load from repo
+        value=[],
+        className="w-100",
     )
 
     submit = dbc.InputGroup(
@@ -82,7 +86,10 @@ def build_layout_jobs():
                 id="jobs-settings-tab-objectives-label",
                 label="Objectives",
                 tab_id="jobs-settings-tab-objectives",
-                children=[inputs],
+                children=[
+                    dbc.Row([objective_selector]),
+                    dbc.Row([objectives]),
+                ],
                 label_class_name="target-tab",
             ),
             dbc.Tab(
@@ -137,7 +144,7 @@ def build_layout_jobs():
     )
 
     history_alert = html.Div(
-        [dbc.Alert("Empty user history, add a new optimization to continue!", color="primary")],
+        [dbc.Alert("Empty user history, add a new optimization to continue!", color="info")],
         id="jobs-history-alert",
         hidden=True,
     )
@@ -216,22 +223,29 @@ def build_layout_jobs():
         page_size=10,
         style_header={
             "fontWeight": "bold",
-            "textAlign": "left",
+            "textAlign": "right",
             "fontFamily": "inherit",
         },
         style_cell={
-            "textAlign": "left",
+            "textAlign": "right",
             "fontFamily": "inherit",
         },
         hidden_columns=["task_id", "status"],
         css=[
             {"selector": ".show-hide", "rule": "display: none"},
-            {"selector": "tr:first-child", "rule": "display: none"},
+            # {"selector": "tr:first-child", "rule": "display: none"},
         ],
         style_data_conditional=[
             {
                 "if": {"column_id": "status_icon"},
                 "color": "lightgray",
+            },
+            {
+                "if": {
+                    "filter_query": '{status} = "COMPLETED"',
+                    "column_id": "status",
+                },
+                "color": "transparent",
             },
             {
                 "if": {
@@ -333,16 +347,42 @@ def build_layout_jobs():
 
     results_body = html.Div(
         [
-            dcc.Graph(
-                id="jobs-results-graph",
-                figure={
-                    "data": [],
-                    "layout": {
-                        "height": 320,
-                        "margin": {"l": 10, "r": 10, "t": 10, "b": 10},
-                    },
-                },
-                config=DEFAULT_CONFIG,
+            dbc.Row(
+                [
+                    dbc.Col(
+                        dcc.Graph(
+                            id="jobs-results-pareto-graph",
+                            figure={
+                                "data": [],
+                                "layout": {
+                                    "height": 320,
+                                    "margin": {"l": 10, "r": 10, "t": 10, "b": 10},
+                                },
+                            },
+                            config=DEFAULT_CONFIG,
+                        ),
+                        xs=12,
+                        md=6,
+                        className="px-2",
+                    ),
+                    dbc.Col(
+                        dcc.Graph(
+                            id="jobs-results-detail-graph",
+                            figure={
+                                "data": [],
+                                "layout": {
+                                    "height": 320,
+                                    "margin": {"l": 10, "r": 10, "t": 10, "b": 10},
+                                },
+                            },
+                            config=DEFAULT_CONFIG,
+                        ),
+                        xs=12,
+                        md=6,
+                        className="px-2",
+                    ),
+                ],
+                className="g-3",
             )
         ],
     )

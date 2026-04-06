@@ -3,7 +3,7 @@ from dataclasses import dataclass
 import numpy as np
 
 
-@dataclass
+@dataclass(frozen=True)
 class CompositionalConfig:
     """
     Configuration for compositional feature preparation.

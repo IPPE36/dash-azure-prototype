@@ -81,6 +81,7 @@ def build_global_navbar():
                             target="navbar-user-btn",
                             trigger="click",
                             placement="bottom-end",
+                            className="m-0"
                         )
                     ],
                     className="ms-auto d-flex align-items-center gap-2",

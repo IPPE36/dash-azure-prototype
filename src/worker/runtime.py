@@ -32,6 +32,15 @@ class WorkerRuntime:
         # artifacts = self.model_repo.find_by_targets(targets)
         return f"processed click #{x}"
 
+    def get_bounds(self, targets: set[str] | list[str]) -> list[tuple[float, float]]:
+        bounds_list: list[tuple[float, float]] = []
+        for key in targets:
+            bounds = self.model_repo.bounds.get(key)
+            if bounds is None:
+                bounds = (0.0, 1.0)
+            bounds_list.append((float(bounds[0]), float(bounds[1])))
+        return bounds_list
+
     def optimize(
         self,
         *,
@@ -40,11 +49,6 @@ class WorkerRuntime:
         bounds: dict[str, tuple[float, float]] | None = None,
         fixed: dict[str, float] | None = None,
         fit_features: list[str] | None = None,
-        runs: int = 200,
-        population: int = 50,
-        seed: int = 1,
-        crossover: str = "SBX",
-        device: str = "cpu",
     ):
         """Initialize and store a model inversion optimization."""
         from worker.opt import ModelInversionAlgorithm
@@ -56,13 +60,26 @@ class WorkerRuntime:
             bounds=bounds,
             fixed=fixed,
             fit_features=fit_features,
-            runs=runs,
-            population=population,
-            seed=seed,
-            crossover=crossover,
-            device=device,
         )
         return self.optimization
+
+    def optimize_step(self):
+        if self.optimization is None:
+            raise RuntimeError("No active optimization. Call optimize() first.")
+        self.optimization.step_once()
+        return self.optimization.get_results()
+
+    def optimize_run(self, steps: int | None = None):
+        if self.optimization is None:
+            raise RuntimeError("No active optimization. Call optimize() first.")
+        if steps is None:
+            return self.optimization.run()
+        return self.optimization.run_steps(steps)
+
+    def optimize_results(self):
+        if self.optimization is None:
+            return []
+        return self.optimization.get_results()
 
 
 def configure_runtime() -> WorkerRuntime:

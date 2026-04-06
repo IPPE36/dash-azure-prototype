@@ -14,12 +14,14 @@
     margin-left: 0.5rem;
     font-weight: 900;
 }
+
 .submit-btn::after {content: "\f061";}
 .settings-btn::after {content: "\f013";}
 .history-btn::after {content: "\f1da";}
 .results-btn::after {content: "\f080";}
 .load-btn::after {content: "\f07c";}
 .delete-btn::after {content: "\f1f8";}
+.cancel-btn::after {content: "\f00d";}
 .add-btn::after {content: "\f067";}
 .logout-btn::after {content: "\f2f5";}
 .nav-btn::after {content: "\f0c9"; margin-left: 0rem;}
@@ -33,25 +35,16 @@
 .home-jobs-btn::after {content: "\f0b1";}
 .home-pred-btn::after {content: "\f201";}
 
-.home-action-group {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: 0.75rem;
+.btn-primary:hover {
+    background-color: color-mix(in srgb, var(--primary), white 33%);
 }
-
-.home-action-btn {
-    flex: 1 1 220px;
-    max-width: 260px;
-}
-
 .btn-outline-primary {
     background-color: white !important;
 }
 .btn-outline-primary:hover,
 .btn-outline-primary:focus,
 .btn-outline-primary:active {
-    background-color: white !important;
+    background-color: var(--bs-light) !important;
     box-shadow: none !important;
-    color: var(--bs-primary);
+    color: var(--bs-secondary);
 }

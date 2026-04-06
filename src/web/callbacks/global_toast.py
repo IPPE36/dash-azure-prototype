@@ -67,7 +67,8 @@ def register_callbacks_toast():
                             id: confirm_id,
                             color: confirm_color,
                             size: "sm",
-                            className: "me-2"
+                            className: "me-2 delete-btn",
+                            autoFocus: true
                         }
                     },
                     {
@@ -76,8 +77,9 @@ def register_callbacks_toast():
                         props: {
                             children: cancel_label,
                             id: "app-toast-cancel-btn",
-                            color: "secondary",
-                            size: "sm"
+                            color: "light",
+                            size: "sm",
+                            className: "cancel-btn"
                         }
                     }
                 ];
